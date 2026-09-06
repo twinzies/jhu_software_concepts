@@ -1,0 +1,1 @@
+Please see the markdown file - README.md for a fuller description. This file only contains the minimal instructions needed to run the application.
