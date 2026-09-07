@@ -1,0 +1,103 @@
+/* Stylesheet for the Module 1 personal website. */
+
+/* --- Base typography and page layout --- */
+
+body {
+  margin: 0;
+  font-family: Georgia, "Times New Roman", serif;
+  line-height: 1.6;
+  color: #1a1a1a;
+  background-color: #ffffff;
+}
+
+.content {
+  max-width: 60rem;
+  margin: 0 auto;
+  padding: 2rem 1.5rem;
+}
+
+h1 {
+  margin-bottom: 0.25rem;
+}
+
+h2 {
+  margin-top: 0;
+  font-weight: normal;
+  color: #444444;
+}
+
+a {
+  color: #1a4f8a;
+}
+
+/* --- Navigation bar --- */
+
+/* Full-width bar with the links pushed into the top-right corner. */
+.navbar {
+  display: flex;
+  justify-content: flex-end;
+  gap: 0.25rem;
+  background-color: #330220;
+  padding: 0.5rem 1.5rem;
+}
+
+.nav-link {
+  padding: 0.5rem 1rem;
+  color: #ffffff;
+  text-decoration: none;
+  font-family: Georgia, "Times New Roman", serif;
+}
+
+.nav-link:hover {
+  background-color: #7a365e;
+}
+
+/* The tab for the page being viewed, colored differently from the bar. */
+.nav-link.active {
+  background-color: #d9e4f2;
+  color: #330220;
+  font-weight: bold;
+}
+
+/* --- Home page: biography left, photograph right --- */
+
+.bio-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 2rem;
+  align-items: flex-start;
+  margin-top: 1.5rem;
+}
+
+.bio-text {
+  flex: 1 1 20rem;
+}
+
+.bio-image {
+  flex: 0 1 20rem;
+}
+
+.bio-image img {
+  width: 100%;
+  height: auto;
+  border: 1px solid #cccccc;
+}
+
+.content-section {
+  margin-bottom: 2rem;
+}
+
+.content-section h4 {
+  margin-bottom: 0.5rem;
+}
+
+/* --- Projects page --- */
+
+.project-list {
+  list-style: none;
+  padding: 0;
+}
+
+.project-list > li {
+  margin-bottom: 2rem;
+}

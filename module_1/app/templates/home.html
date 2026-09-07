@@ -1,0 +1,47 @@
+{% extends "base.html" %}
+
+{% block title %}
+Tara K. Jain
+{% endblock %}
+{% block content %}
+<h1>Tara Jain (she/her)</h1>
+<h2>Sr Software Engineer - GenAI, MathWorks, Cambridge, England</h2>
+
+<!-- Two-column row: biography on the left, photograph on the right. -->
+<div class="bio-row">
+  <div class="bio-text">
+    <p>
+      Hi, I'm Tara. I am an Engineer specialized in AI.
+    </p>
+    <section class="content-section">
+    <h4>Academic Background</h4>
+    <p>
+      I was awarded two bachelor’s degrees simultaneously - B.S. in Electrical and Computer Engineering and B.S. in Atmospheric Sciences both at the University of Illinois at Urbana-Champaign. When I was 5 and they asked me "what do you want to be when you grow up ?" I responded a "Scientist". I nearly completed the childhood-dream arc when I was offered a funded PhD at JHU in 2018 to work on the James Webb Space Telescope. You'll find out in the next section for why I say <em>nearly</em>.
+    </p>
+    <section class="content-section">
+    <h4>What I Do</h4>
+    <p>
+      Unfortunately, at this time I was also tempted by a lucrative job offer and wandered off course and into the Sierra Nevada wilderness instead. I now serve out my sentence in the corporate world at MathWorks (Cambridge, England, UK), working on GenAI products, in a state of mild penance, frequent regret, and occasional respite when I speak with my now-unemployed physicist friends.
+
+      In more recent times, outside of my profession, I've begun working on a side project in legal AI with the faculty of Law at the University of Cambridge. While some are wary of AI generated legal claims being issued by lay-persons, I feel that the recent technological advancement could also be used as a good excuse to clean up the system (where possible, to the extent feasible).
+    </p>
+    <section class="content-section">
+    <h4>Programming Experience</h4>
+    <p>
+    
+      I truly started writing code around 2015 when an undergrad class analyzing weather data got me interested and working at radio astronomy telescopes and facilities necessitated processing lidar and radar data in Python.
+      
+      I wrote considerably more of it before ~2026 (before management began "strongly encouraging" me to let Claude Code "have a go" so as to churn out a year's worth of projects in a month).
+    </p>
+    <p>
+      I code primarily in Python. Owing to my non-CS bachelor's at times, I am wary of missing out on fundamentals and I am hoping to gain good software development practices (beyond that which Claude / ChatGPT can teach) from this course.
+    </p>
+  </div>
+  <div class="bio-image">
+    <img
+      src="{{ url_for('static', filename='img/profile.png') }}"
+      alt="Picture of Tara."
+    />
+  </div>
+</div>
+{% endblock %}

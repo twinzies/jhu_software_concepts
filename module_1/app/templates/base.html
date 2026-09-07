@@ -1,0 +1,35 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>{% block title %}Tara Jain{% endblock %}</title>
+    <link
+      rel="stylesheet"
+      href="{{ url_for('static', filename='css/style.css') }}"
+    />
+  </head>
+  <body>
+    <!-- Shared navigation bar. The link for the page currently being viewed
+         gets the "active" class, which the stylesheet colors differently. -->
+    <nav class="navbar">
+      <a
+        class="nav-link {% if request.endpoint == 'main.home' %}active{% endif %}"
+        href="{{ url_for('main.home') }}"
+        >About</a
+      >
+      <a
+        class="nav-link {% if request.endpoint == 'main.projects' %}active{% endif %}"
+        href="{{ url_for('main.projects') }}"
+        >Projects</a
+      >
+      <a
+        class="nav-link {% if request.endpoint == 'main.contact' %}active{% endif %}"
+        href="{{ url_for('main.contact') }}"
+        >Contact</a
+      >
+    </nav>
+
+    <main class="content">{% block content %}{% endblock %}</main>
+  </body>
+</html>

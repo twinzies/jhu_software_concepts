@@ -1,0 +1,31 @@
+{% extends "base.html" %}
+{% block title %}Projects{% endblock %}
+
+{% block content %}
+<h1>Projects</h1>
+
+<ul class="project-list">
+  <li>
+    <h2>Module 1 - Portfolio web applicatio with Flask</h2>
+    <section class="content-section">
+    <h4>Project Description</h4>
+    <p>
+      This project uses a micro web framework, Flask to develop a web application. The web application is a basic professional portfolio.
+    </p>
+    <section class="content-section">
+    <h4>Project Link</h4>
+    <p>
+      <a href="https://github.com/twinzies/jhu_software_concepts/tree/main/module_1">View this project on GitHub</a>
+    </p>
+    <section class="content-section">
+    <h4>Key Takeaways</h4>
+    <p>The key learnings for me were around:</p>
+    <ol>
+      <li>Seeing how the factory method design is used in a Flask application. The app/__init__.py contains the "factory" with the factory method (create_app). And, run.py provides the (client) code that uses the factory.</li>
+      <li>How to structure a Flask application with routes, templates, and static assets (as demonstrated by this project) and use a blueprint to group routes.</li>
+      <li>Using Jinja template inheritance to share a consistent page layout (though there is some confusion around this concept for me that I hope to sort this out in office hours or via email).</li>
+      <li>Styling reusable page components with CSS.</li>
+    </ol>
+  </li>
+</ul>
+{% endblock %}
