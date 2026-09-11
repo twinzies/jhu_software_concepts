@@ -5,6 +5,7 @@ from urllib.parse import urljoin
 
 from bs4 import BeautifulSoup
 from selenium import webdriver
+from urllib3.exceptions import ReadTimeoutError
 
 BASE_URL = "https://www.thegradcafe.com/survey"
 
@@ -86,6 +87,7 @@ if __name__ == "__main__":
 
     # Open the URL in a windowless browser to bypass the 403 Error.
     options = webdriver.FirefoxOptions()
+    options.page_load_strategy = "eager"
     options.add_argument("-headless")
 
     driver = webdriver.Firefox(options)
@@ -118,7 +120,7 @@ if __name__ == "__main__":
                         saved_urls.add(record["url"])
                         saved_count += 1
 
-            print(f"Saved {saved_count} new records.. completed page{_+1}/2500.")
+            print(f"Saved {saved_count} new records.. completed page {_+1}/2500.")
 
             # Update URL for next page and get the html.
             url = get_next(soup, url)
@@ -130,6 +132,8 @@ if __name__ == "__main__":
     except Exception as error:
         if "400" in str(error) or "403" in str(error):
             print(f"HTTP request failed: {error}")
+        elif isinstance(error, ReadTimeoutError):
+            print("Browser driver timed out. Scraping stopped; previously saved records are preserved.")
         else:
             raise
     
