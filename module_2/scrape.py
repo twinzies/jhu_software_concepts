@@ -99,25 +99,33 @@ if __name__ == "__main__":
 
         print(soup.title.get_text() if soup.title else "No title found")
 
-        all_records = []
+        OUTPUT_PATH.parent.mkdir(exist_ok=True)
+        saved_urls = set()
+        if OUTPUT_PATH.exists():
+            with open(OUTPUT_PATH, encoding="utf-8") as jsonl_file:
+                saved_urls = {json.loads(line)["url"] for line in jsonl_file if line.strip()}
+
+        saved_count = 0
+
         for _ in range(2500):
             records = extract_records(soup) # Gets the records from the current page.
 
-            all_records.extend(records)
+            # Append each record before loading the next; closing flushes the file.
+            with open(OUTPUT_PATH, "a", encoding="utf-8") as jsonl_file:
+                for record in records:
+                    if record["url"] not in saved_urls:
+                        jsonl_file.write(json.dumps(record, ensure_ascii=False) + "\n")
+                        saved_urls.add(record["url"])
+                        saved_count += 1
 
-            # Update URL for next iteration.
+            print(f"Saved {saved_count} new records.. completed page{_+1}/2500.")
+
+            # Update URL for next page and get the html.
             url = get_next(soup, url)
             
             driver.get(url)
             html = driver.page_source
             soup = BeautifulSoup(html, "html.parser")
-
-        OUTPUT_PATH.parent.mkdir(exist_ok=True)
-        
-        with open(OUTPUT_PATH, "w", encoding="utf-8") as jsonl_file:
-            jsonl_file.writelines(json.dumps(record, ensure_ascii=False) + "\n" for record in all_records)
-
-        print(f"Saved {len(all_records)} records to {OUTPUT_PATH}")
 
     except Exception as error:
         if "400" in str(error) or "403" in str(error):
