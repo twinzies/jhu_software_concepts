@@ -34,39 +34,25 @@ Requires Python 3.10 or higher.
 
 ## robots.txt compliance
 
-`https://www.thegradcafe.com/robots.txt` was checked before scraping; `screenshot.jpg` is the
-evidence.
+`https://www.thegradcafe.com/robots.txt` was checked before scraping; see `screenshot.jpg` for evidence.
 
-The `User-agent: *` rules are `Allow: /`, followed by a block disallowing only account pages:
-`/signin`, `/register`, `/forgot-password`, `/reset-password`, `/confirm-password`,
-`/verify-email` and `/profile`. This scraper reads only `/survey`, the public paginated
-results listing, and records the `/result/<id>` links it finds there. Neither path is
-disallowed, so the scrape is permitted.
-
-There is no `Crawl-delay` directive, but the scraper still waits one second between pages. It
-stops on a 400 or 403 response, and never signs in, solves a CAPTCHA, or requests a
-disallowed path.
+The `User-agent: *` rules are `Allow: /`, followed by a block disallowing only account pages: `/signin`, `/register`, `/forgot-password`, `/reset-password`, `/confirm-password`, `/verify-email` and `/profile`. This scraper reads only `/survey`, the public paginated results listing, and records the `/result/<id>` links it finds there. Neither path is disallowed, so the scrape is permitted.
 
 ## Approach
 
-**Scraping** is a hybrid workflow. `urllib.parse.urljoin` builds and resolves the page URLs,
-headless **Firefox + GeckoDriver** (resolved automatically by Selenium Manager) renders the
-JavaScript-loaded results table, and BeautifulSoup parses the rendered HTML. Pages use the
-`eager` load strategy followed by an explicit `WebDriverWait` for an applicant row, rather
-than a fixed sleep.
+**Scraping the data (scrape.py)**
+The site blocks plain requests and builds its results table with JavaScript, so the scraper drives a headless Firefox browser (to keep it as lightweight as possible) and reads the finished page with BeautifulSoup. I found this approach to work better than the recommendation to manually bypass verification in an open browser, and though mechanical soup and its stateful browser were attempted -it hit the 403 status error. 
 
-Records are appended after each page, and every page's `next_url` is logged to
-`data/scraped_pages.jsonl`, which is what makes a run resumable. A driver timeout quits and
-restarts the browser; a page that renders no rows is reloaded rather than mistaken for the end
-of the results.
+Every page is saved before the next is fetched, and the link to the next page is written to scraped_pages.json, so a new run continues from where the last one stopped instead of starting over. If the browser stalls it is quit and restarted, and a page that comes back empty is reloaded
+rather than treated as the end of the results - I found this to be especially helpful as the headless browser would, at times, be too slow and timeout - which is why the “eager” strategy was picked which does not wait for images to load in the headless browser.
 
-**Cleaning** joins the program and university into the single `program` string the
-standardizer expects, and splits `"Accepted on Jan 09"` into `status` and `decision_date`. The
-raw `status_raw` and `details_raw` fields are kept alongside the cleaned ones for
-traceability. Unavailable values are `null` throughout.
+**Cleaning the data (clean.py)**
+clean_data() reshapes each scraped record as per the output expected by the assignment. The program and university names are joined into the single "program" string the llm standardizer expects, and a status such as
+"Accepted on Jan 09" is split by _normalize_status() into "status" and "decision_date” so the acceptance or rejection date is its own field. The html was already cleaned by beautiful soup in the previous step (scrape.py).
 
-**Standardization** runs the provided `llm_hosting/app.py` model over every record. See
-[llm_hosting/README.md](llm_hosting/README.md) for the local additions.
+**Standardizing with the local LLM (llm_hosting/)**
+parallel_run.py was added beside it and calls the same
+_call_llm function, differing from the stock CLI in three ways. It deduplicates: the 31,640 rows contain only 12,540 distinct program strings, so each is standardized once and mapped back, cutting the model calls by 2.5x. It runs several worker processes, each loading its own copy of the model. And it caches every result to llm_cache.jsonl as it goes, so an interrupted run resumes instead of starting over, and refuses to write a partial output file. On Apple Silicon (my laptop configuration) it defaults to MPS (which gives a 2.5x boost over CPU) and I picked three workers. 
 
 ## Module repository structure
 
