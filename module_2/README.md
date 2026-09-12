@@ -6,6 +6,8 @@ Scrapes graduate admission results from [The GradCafe](https://www.thegradcafe.c
 cleans them into a structured JSON object, and standardizes the program and university names
 using a locally hosted LLM. The result is 31,640 applicant entries in `applicant_data.json`.
 
+[This](git@github.com:twinzies/jhu_software_concepts.git) is the SSH URL to this project repository.
+
 ## Quick Start Guide
 
 From the `module_2` folder:
@@ -74,7 +76,7 @@ module_2/
 ├── clean.py                         # cleaning logic
 ├── applicant_data.json              # cleaned records
 ├── llm_extend_applicant_data.json   # llm standardized output
-├── screenshot.png                   # robots.txt evidence
+├── screenshot.jpg                   # robots.txt evidence
 ├── requirements.txt
 ├── README.md                        # this file
 ├── README.txt
