@@ -14,10 +14,32 @@ from urllib3.exceptions import ReadTimeoutError
 
 BASE_URL = "https://www.thegradcafe.com/survey"
 
-OUTPUT_PATH = Path(__file__).parent / "data" / "gradcafe_records.jsonl"
+OUTPUT_PATH = Path(__file__).parent / "data" / "scraped_data.jsonl"
 
 # For picking starting from the url the script stopped at, instead of rescraping from page 1.
-PAGE_LOG_PATH = OUTPUT_PATH.with_name("gradcafe_pages.jsonl")
+PAGE_LOG_PATH = OUTPUT_PATH.with_name("scraped_pages.jsonl")
+
+def _parse_details(badges):
+    """Splits the applicant badges into the fields the assignment asks for."""
+    details = {"term": None, "US/International": None,
+               "GRE": None, "GRE V": None, "GRE AW": None, "GPA": None}
+
+    for badge in badges:
+        # The longer GRE labels have to be tested before the plain "GRE " prefix.
+        if badge in ("American", "International", "Other"):
+            details["US/International"] = badge
+        elif badge.startswith("GRE AW "):
+            details["GRE AW"] = badge
+        elif badge.startswith("GRE V "):
+            details["GRE V"] = badge
+        elif badge.startswith("GRE "):
+            details["GRE"] = badge
+        elif badge.startswith("GPA "):
+            details["GPA"] = badge
+        elif badge.partition(" ")[2].isdigit():
+            details["term"] = badge
+
+    return details
 
 def extract_records(soup)->list[dict]:
     """Extracts admission records from the html."""
@@ -63,6 +85,7 @@ def extract_records(soup)->list[dict]:
                 if program_parts else None,
             "degree": program_parts[1].get_text(strip=True)
                 if len(program_parts) > 1 else None,
+            **_parse_details(badges),
             "date_added": cells[2].get_text(" ", strip=True),
             "status_raw": cells[3].get_text(" ", strip=True),
             "url": urljoin("https://www.thegradcafe.com", link["href"]),
@@ -196,10 +219,10 @@ def scrape_data():
 
         saved_count = 0
 
-        for _ in range(2500):
+        for i in range(2500):
             records = extract_records(soup) # Gets the records from the current page.
             saved_before_page = saved_count
-            page_number = resume_page + _ + 1
+            page_number = resume_page + i + 1
 
             # Append each record and closing the file.
             with open(OUTPUT_PATH, "a", encoding="utf-8") as jsonl_file:
@@ -226,7 +249,7 @@ def scrape_data():
                     "applicant_urls": [record["url"] for record in records],
                 }, ensure_ascii=False) + "\n")
 
-            print(f"Saved {new_records} new records this page ({saved_count} this run).. completed page {page_number} ({_+1}/2500 this run).")
+            print(f"Saved {new_records} new records this page ({saved_count} this run).. completed page {page_number} ({i+1}/2500 this run).")
 
             # Update URL for next page and get the html.
             if next_url is None:
