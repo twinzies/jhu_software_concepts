@@ -46,3 +46,30 @@ export MODEL_FILE=tinyllama-1.1b-chat-v1.0.Q3_K_M.gguf
 ## Notes
 - Strict JSON prompting + a rules-first fallback keep tiny models on task.
 - Extend the few-shots and the fallback patterns in `app.py` for higher accuracy on your dataset.
+
+---
+
+## Local addition: `parallel_run.py`
+
+`parallel_run.py` processes the cleaned dataset with:
+
+- Deduplication of program names
+- Parallel workers
+- Cached results for resumable runs
+
+Run:
+
+```bash
+python parallel_run.py
+```
+
+Output: `../llm_extend_applicant_data.json`
+
+On Apple Silicon, the defaults are Metal acceleration and 3 workers. Override them with
+environment variables or `--workers`:
+
+```bash
+N_GPU_LAYERS=0 python parallel_run.py --workers 4
+```
+
+`models/` and `llm_cache.jsonl` are gitignored.

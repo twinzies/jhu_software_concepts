@@ -6,6 +6,7 @@ import argparse
 import json
 import multiprocessing
 import os
+import platform
 from pathlib import Path
 
 HERE = Path(__file__).parent
@@ -66,23 +67,36 @@ def _standardize_programs(programs, cache_path, workers, limit):
 def main():
     """Standardizes the cleaned applicant file and writes the extended copy."""
     cores = os.cpu_count() or 2
+    # Apple Silicon can run the model on Metal, where three workers saturate the one GPU.
+    on_metal = platform.system() == "Darwin" and platform.machine() == "arm64"
+
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--file", default=str(HERE.parent / "applicant_data.json"))
     parser.add_argument("--out", default=str(HERE.parent / "llm_extend_applicant_data.json"))
     parser.add_argument("--cache", default=str(HERE / "llm_cache.jsonl"))
-    parser.add_argument("--workers", type=int, default=max(1, cores // 2))
+    parser.add_argument("--workers", type=int, default=3 if on_metal else max(1, cores // 2))
     parser.add_argument("--limit", type=int, default=0, help="Standardize at most N programs.")
+    parser.add_argument("--rows", type=int, default=0, help="Use only the first N applicant rows.")
     args = parser.parse_args()
 
     input_path, output_path = Path(args.file).resolve(), Path(args.out).resolve()
     cache_path = Path(args.cache).resolve()
 
-    # Share the cores between workers, then run where app.py's canonical lists live.
+    # Both are left overridable, so N_GPU_LAYERS=0 still forces app.py back onto the CPU.
+    if on_metal:
+        os.environ.setdefault("N_GPU_LAYERS", "99")
     os.environ.setdefault("N_THREADS", str(max(1, cores // args.workers)))
-    os.chdir(HERE)
+
+    backend = "Metal" if os.environ.get("N_GPU_LAYERS", "0") != "0" else "CPU"
+    print(f"{backend}, {args.workers} workers, N_THREADS={os.environ['N_THREADS']}")
+
+    os.chdir(HERE)  # app.py reads its canonical lists relative to the working directory.
 
     with open(input_path, encoding="utf-8") as input_file:
         rows = json.load(input_file)
+
+    if args.rows:
+        rows = rows[:args.rows]  # The file is newest first, so this is the latest N applicants.
 
     programs = sorted({row["program"] or "" for row in rows})
     cache = _standardize_programs(programs, cache_path, args.workers, args.limit)
