@@ -1,3 +1,6 @@
+# Large files rejected by git
+tinyllama-1.1b-chat-v1.0.Q4_K_M.gguf
+
 # Local files
 local_files/
 .history/
@@ -53,3 +56,7 @@ pip-wheel-metadata/
 .DS_Store
 .AppleDouble
 .LSOverride
+
+# Local LLM model weights and standardizer cache
+module_2/llm_hosting/models/
+llm_cache.jsonl
