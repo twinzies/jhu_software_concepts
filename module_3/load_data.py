@@ -11,7 +11,7 @@ from pathlib import Path
 import psycopg
 
 # The LLM cleaned data
-DEFAULT_DATA = Path(__file__).resolve().parents[1] / "module_2" / "llm_extend_applicant_data.json"
+DEFAULT_DATA = Path(__file__).resolve().with_name("llm_extend_applicant_data.json")
 
 # Strings the grad cafe data uses for missing scores.
 BLANKS = {"", "n/a", "na", "none", "null", "unknown"}
