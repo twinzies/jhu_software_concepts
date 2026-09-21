@@ -60,3 +60,6 @@ pip-wheel-metadata/
 # Local LLM model weights and standardizer cache
 module_2/llm_hosting/models/
 llm_cache.jsonl
+
+# Flask Pull Data runtime state
+module_3/pull_status.json
