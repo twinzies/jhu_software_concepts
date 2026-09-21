@@ -1,0 +1,108 @@
+/* Stylesheet for the Module 3 analysis page, using the Module 1 site colors. */
+
+:root {
+  --plum: #330220;
+  --mauve: #7a365e;
+  --pale-blue: #d9e4f2;
+  --link: #1a4f8a;
+  --ink: #1a1a1a;
+  --muted: #444444;
+  --line: #cccccc;
+}
+
+body {
+  margin: 0;
+  font-family: Georgia, "Times New Roman", serif;
+  line-height: 1.6;
+  color: var(--ink);
+  background-color: #ffffff;
+}
+
+.content {
+  max-width: 60rem;
+  margin: 0 auto;
+  padding: 2rem 1.5rem;
+}
+
+/* --- Navigation bar, matching the Module 1 site --- */
+
+.navbar {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 0.25rem;
+  background-color: var(--plum);
+  padding: 0.5rem 1.5rem;
+}
+
+.navbar h1 {
+  margin: 0 auto 0 0;
+  font-size: 1.3rem;
+  font-weight: normal;
+  color: #ffffff;
+}
+
+.navbar button {
+  font-family: inherit;
+  font-size: 1rem;
+  padding: 0.5rem 1rem;
+  border: none;
+  background-color: transparent;
+  color: #ffffff;
+  cursor: pointer;
+}
+
+.navbar button:hover:not(:disabled) { background-color: var(--mauve); }
+.navbar button:disabled { opacity: 0.55; cursor: not-allowed; }
+
+/* The primary action, colored like the active tab on the Module 1 site. */
+.navbar button.active {
+  background-color: var(--pale-blue);
+  color: var(--plum);
+  font-weight: bold;
+}
+
+.navbar button.active:hover { background-color: #c7d8ec; }
+
+/* --- Status text --- */
+
+.explain { color: var(--muted); margin: 0 0 1.25rem; }
+
+.banner {
+  padding: 0.6rem 0.9rem;
+  border-left: 4px solid var(--plum);
+  background-color: var(--pale-blue);
+  margin: 0 0 0.75rem;
+}
+
+.banner.ok { border-left-color: #2e7d4f; }
+.banner.warn { border-left-color: #b8860b; }
+.banner.error { border-left-color: #b3261e; }
+
+.meta { color: var(--muted); font-size: 0.9rem; margin: 0 0 1.5rem; }
+
+/* --- One card per question --- */
+
+.card {
+  border: 1px solid var(--line);
+  padding: 1rem 1.25rem;
+  margin-bottom: 1rem;
+}
+
+.card h2 {
+  margin: 0 0 0.25rem;
+  font-size: 0.85rem;
+  font-weight: normal;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+  color: var(--mauve);
+}
+
+.question { margin: 0 0 0.6rem; }
+.answer { font-size: 1.9rem; color: var(--plum); margin: 0; }
+.label { font-size: 0.85rem; color: var(--muted); margin: 0; }
+
+table { border-collapse: collapse; width: 100%; }
+th, td { text-align: left; padding: 0.45rem 0.6rem; border-bottom: 1px solid var(--line); }
+th { color: var(--muted); font-size: 0.9rem; }
+tbody tr:last-child td { border-bottom: none; }
