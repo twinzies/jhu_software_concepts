@@ -28,6 +28,16 @@ def matches_university(column):
     )
 
 
+def average(column):
+    return func.round(cast(func.avg(column), Numeric), 2)
+
+
+def percentage(condition):
+    return func.round(
+        Decimal("100.0") * func.count().filter(condition) / func.nullif(func.count(), 0), 2
+    ).concat("%")
+
+
 original_match = and_(
     Applicant.program.ilike("%Computer Science%"),
     matches_university(Applicant.program),
@@ -55,14 +65,38 @@ university = case(
     (Applicant.llm_generated_university.ilike("%Carnegie Mellon%"), "Carnegie Mellon University"),
 )
 
+# The two reported nationalities Question 11 compares.
+american = Applicant.us_or_international.ilike("American")
+international = Applicant.us_or_international.ilike("International")
+
 QUERIES = [
     # Question 1
     (1, select(func.count().label("fall_2026_count"))
         .select_from(Applicant)
         .where(func.lower(Applicant.term) == "fall 2026")),
 
+    # Question 2
+    (2, select(
+            percentage(
+                func.lower(Applicant.us_or_international) == "international"
+            ).label("percent_international")
+        )
+        .select_from(Applicant)
+        .where(
+            Applicant.us_or_international.is_not(None),
+            Applicant.us_or_international != "",
+        )),
+
+    # Question 3
+    (3, select(
+            average(Applicant.gpa).label("average_gpa"),
+            average(Applicant.gre).label("average_gre_quantitative"),
+            average(Applicant.gre_v).label("average_gre_verbal"),
+            average(Applicant.gre_aw).label("average_gre_analytical_writing"),
+        )),
+
     # Question 4
-    (4, select(func.round(cast(func.avg(Applicant.gpa), Numeric), 2).label("average_gpa"))
+    (4, select(average(Applicant.gpa).label("average_gpa"))
         .where(
             func.lower(Applicant.term) == "fall 2026",
             func.lower(Applicant.us_or_international) == "american",
@@ -71,18 +105,35 @@ QUERIES = [
 
     # Question 5
     (5, select(
-            func.round(
-                Decimal("100.0")
-                * func.count().filter(func.lower(Applicant.status) == "accepted")
-                / func.nullif(func.count(), 0),
-                2,
-            ).concat("%").label("acceptance_percentage")
+            percentage(
+                func.lower(Applicant.status) == "accepted"
+            ).label("acceptance_percentage")
         )
         .select_from(Applicant)
         .where(
             func.lower(Applicant.term) == "fall 2025",
             Applicant.status.is_not(None),
             Applicant.status != "",
+        )),
+
+    # Question 6
+    (6, select(average(Applicant.gpa).label("average_gpa"))
+        .where(
+            func.lower(Applicant.term) == "fall 2026",
+            func.lower(Applicant.status) == "accepted",
+            Applicant.gpa.is_not(None),
+        )),
+
+    # Question 7
+    (7, select(func.count().label("jhu_cs_masters_count"))
+        .select_from(Applicant)
+        .where(
+            or_(
+                Applicant.program.ilike("%Johns Hopkins%"),
+                Applicant.program.regexp_match(r"\mJHU\M", flags="i"),
+            ),
+            Applicant.program.ilike("%Computer Science%"),
+            Applicant.degree.ilike("master%"),
         )),
 
     # Question 8
@@ -107,7 +158,39 @@ QUERIES = [
         .where(accepted_phd, Applicant.gpa.is_not(None), university.is_not(None))
         .group_by(university)
         .order_by(university)),
+
+    # Question 11 (my second question)
+    (11, select(
+            university.label("university"),
+            func.min(Applicant.gpa).filter(american).label("lowest_american_gpa"),
+            func.min(Applicant.gpa).filter(international).label("lowest_international_gpa"),
+        )
+        .where(
+            accepted_phd,
+            Applicant.gpa.is_not(None),
+            university.is_not(None),
+            or_(american, international),
+        )
+        .group_by(university)
+        .order_by(university)),
 ]
+
+QUESTIONS = {
+    1: "How many entries are from applicants who applied for Fall 2026?",
+    2: "Among entries that provide a nationality, what percentage are international students?",
+    3: "What are the average GPA, GRE Quantitative, GRE Verbal and GRE Analytical Writing scores?",
+    4: "What is the average GPA of American applicants who applied for Fall 2026?",
+    5: "What percentage of Fall 2025 entries are acceptances?",
+    6: "What is the average GPA of accepted applicants who applied for Fall 2026?",
+    7: "How many entries are Johns Hopkins master's applications in Computer Science?",
+    8: "How many Fall 2026 entries are PhD Computer Science acceptances at Georgetown, "
+       "MIT, Stanford or Carnegie Mellon?",
+    9: "Question 8 again, using the LLM-generated program and university fields instead.",
+    10: "What was the lowest GPA accepted to a doctoral program at those four "
+        "universities for Fall 2026?",
+    11: "At those same universities, what was the lowest accepted GPA for American "
+        "and for international applicants?",
+}
 
 
 def run_queries(session):
