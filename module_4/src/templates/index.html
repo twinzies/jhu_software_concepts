@@ -1,0 +1,76 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  {% if pulling %}<meta http-equiv="refresh" content="5">{% endif %}
+  <title>Grad Cafe Analysis</title>
+  <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+</head>
+<body>
+
+<header class="navbar">
+  <h1>Grad Cafe Analysis</h1>
+  <form method="post" action="{{ url_for('pull_data') }}">
+    <button type="submit" {% if pulling %}disabled{% endif %}>Pull Data</button>
+  </form>
+  <form method="post" action="{{ url_for('update_analysis') }}">
+    <button type="submit" class="active">Update Analysis</button>
+  </form>
+</header>
+
+<div class="content">
+
+  <p class="explain">
+    Pull Data checks Grad Cafe for newly submitted application results and adds new records to the database. Depending on the amount of new data available, this may take some time.
+  </p>
+
+  {% if error %}<p class="banner error">{{ error }}</p>{% endif %}
+  {% if notice %}<p class="banner {{ notice[0] }}">{{ notice[1] }}</p>{% endif %}
+
+  {% if pulling %}
+    <p class="banner info">Pulling new data from Grad Cafe. This page refreshes every 5 seconds.</p>
+  {% elif pull and pull.state == 'finished' %}
+    <p class="banner ok">
+      Last data pull finished at {{ pull.when }} &mdash; scraped {{ pull.scraped }} entries,
+      added {{ pull.inserted }} new records, skipped {{ pull.skipped }} already in the database.
+    </p>
+  {% elif pull and pull.state == 'failed' %}
+    <p class="banner error">
+      The last data pull failed at {{ pull.when }}: {{ pull.message }}
+      Nothing was changed in the database.
+    </p>
+  {% endif %}
+
+  <p class="meta">
+    Results generated {{ generated }}{% if total is not none %} &middot;
+    {{ "{:,}".format(total) }} applicants in the database{% endif %}.
+  </p>
+
+  {% for block in blocks %}
+    <section class="card">
+      <h2>Question {{ block.number }}</h2>
+      <p class="question">{{ block.question }}</p>
+      {% if not block.rows %}
+        <p class="answer">N/A</p>
+      {% elif block.single %}
+        <p class="answer">{{ block.rows[0][0] }}</p>
+        <p class="label">{{ block.headings[0] }}</p>
+      {% else %}
+        <table>
+          <thead>
+            <tr>{% for name in block.headings %}<th>{{ name }}</th>{% endfor %}</tr>
+          </thead>
+          <tbody>
+            {% for row in block.rows %}
+              <tr>{% for value in row %}<td>{{ value }}</td>{% endfor %}</tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      {% endif %}
+    </section>
+  {% endfor %}
+
+</div>
+</body>
+</html>
