@@ -1,7 +1,4 @@
-"""Task 1: Flask app factory, routes, and rendering of the analysis page.
-
-Every test drives the app through Flask's test client, so none needs a browser or a database.
-"""
+"""Task 1: Flask app factory, routes, and rendering of the analysis page."""
 
 import pytest
 from app import create_app
@@ -10,7 +7,6 @@ from flask.testing import FlaskClient
 
 pytestmark = pytest.mark.web
 
-# Every rule the app must register, read by both the registration and response tests.
 ROUTES = [
     ("/", "GET"),
     ("/analysis", "GET"),
@@ -24,7 +20,7 @@ def rules(app):
     return {rule.rule: rule.methods for rule in app.url_map.iter_rules()}
 
 
-# --- 1a. App factory and configuration -------------------------------------
+# --- 1a. App factory and configuration  --- #
 
 def test_factory_returns_a_flask_app(app):
     assert isinstance(app, Flask)
@@ -36,18 +32,15 @@ def test_factory_builds_a_testable_app(app):
 
 
 def test_factory_injects_the_analysis_source(app, analysis_source):
-    """The page reads its rows from the injected callable, not from the database."""
     assert app.extensions["analysis_source"] is analysis_source
 
 
 def test_factory_injects_the_pull_runner(app):
-    """No real subprocess is reachable from a test app."""
     assert app.extensions["pull_state"].process is None
     assert app.extensions["pull_state"].runner is not None
 
 
 def test_config_can_be_overridden_by_tests(tmp_path):
-    """Tests may point the app at another database and status file."""
     url = "postgresql+psycopg://localhost/module_4_test"
     status = tmp_path / "status.json"
     app = create_app({"TESTING": True, "DATABASE_URL": url, "PULL_STATUS_PATH": str(status)})
@@ -57,7 +50,6 @@ def test_config_can_be_overridden_by_tests(tmp_path):
 
 
 def test_factory_returns_independent_apps(analysis_source, pull_runner):
-    """Each call builds fresh state, so one test cannot leak busy-state into another."""
     first = create_app({"TESTING": True}, analysis_source=analysis_source,
                        pull_runner=pull_runner)
     second = create_app({"TESTING": True}, analysis_source=analysis_source,
@@ -67,7 +59,7 @@ def test_factory_returns_independent_apps(analysis_source, pull_runner):
     assert first.extensions["pull_state"] is not second.extensions["pull_state"]
 
 
-# --- 1a. Required routes ----------------------------------------------------
+# --- 1a. Required routes  --- #
 
 @pytest.mark.parametrize(("path", "method"), ROUTES)
 def test_required_route_is_registered(app, path, method):
@@ -78,12 +70,12 @@ def test_required_route_is_registered(app, path, method):
 
 @pytest.mark.parametrize(("path", "method"), ROUTES)
 def test_every_route_responds(client, path, method):
-    """No route is missing or mis-wired: none answers 404 or 405."""
+    """No route is missing or mis-wired: check for 40x error codes"""
     response = client.open(path, method=method)
     assert response.status_code not in (404, 405)
 
 
-# --- 1b. GET /analysis ------------------------------------------------------
+# --- 1b. GET /analysis --- #
 
 def test_analysis_page_returns_200(client):
     """1b-i."""
@@ -104,7 +96,6 @@ def test_index_serves_the_same_analysis_page(app, client):
     [("pull-data-btn", "Pull Data"), ("update-analysis-btn", "Update Analysis")],
 )
 def test_page_contains_both_buttons(page, testid, label):
-    """1b-ii: found by stable selector, and carrying the label the rubric names."""
     button = page.select_one(f'[data-testid="{testid}"]')
     assert button is not None, f"no element with data-testid={testid!r}"
     assert button.get_text(strip=True) == label
@@ -123,7 +114,6 @@ def test_each_button_posts_to_its_endpoint(page, testid, endpoint):
 
 
 def test_page_text_includes_analysis(page):
-    """1b-iii, first half: the word "Analysis" appears in the title and the page."""
     assert "Analysis" in page.title.get_text()
     assert "Analysis" in page.get_text()
 
