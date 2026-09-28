@@ -1,3 +1,5 @@
+"""Scrape Grad Cafe results with headless Firefox and parse them with BeautifulSoup."""
+
 import json
 import time
 from datetime import datetime, timezone

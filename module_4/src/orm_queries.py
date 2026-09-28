@@ -1,3 +1,5 @@
+"""The eleven analysis questions as SQLAlchemy queries, shared with the Flask page."""
+
 # Part 6
 
 from decimal import Decimal

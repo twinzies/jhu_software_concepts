@@ -1,0 +1,340 @@
+
+
+<!DOCTYPE html>
+<html class="writer-html5" lang="en" data-content_root="../">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>app &mdash; Grad Cafe Analytics 1.0 documentation</title>
+      <link rel="stylesheet" type="text/css" href="../_static/pygments.css?v=b86133f3" />
+      <link rel="stylesheet" type="text/css" href="../_static/css/theme.css?v=9edc463e" />
+
+  
+      <script src="../_static/jquery.js?v=5d32c60e"></script>
+      <script src="../_static/_sphinx_javascript_frameworks_compat.js?v=2cd50e6c"></script>
+      <script src="../_static/documentation_options.js?v=f2a433a1"></script>
+      <script src="../_static/doctools.js?v=fd6eb6e6"></script>
+      <script src="../_static/sphinx_highlight.js?v=6ffebe34"></script>
+    <script src="../_static/js/theme.js"></script>
+    <link rel="index" title="Index" href="../genindex.html" />
+    <link rel="search" title="Search" href="../search.html" /> 
+</head>
+
+<body class="wy-body-for-nav"> 
+  <div class="wy-grid-for-nav">
+    <nav data-toggle="wy-nav-shift" class="wy-nav-side">
+      <div class="wy-side-scroll">
+        <div class="wy-side-nav-search" >
+
+          
+          
+          <a href="../index.html" class="icon icon-home">
+            Grad Cafe Analytics
+          </a>
+<div role="search">
+  <form id="rtd-search-form" class="wy-form" action="../search.html" method="get">
+    <input type="text" name="q" placeholder="Search docs" aria-label="Search docs" />
+    <input type="hidden" name="check_keywords" value="yes" />
+    <input type="hidden" name="area" value="default" />
+  </form>
+</div>
+        </div><div class="wy-menu wy-menu-vertical" data-spy="affix" role="navigation" aria-label="Navigation menu">
+              <ul>
+<li class="toctree-l1"><a class="reference internal" href="../overview.html">Overview and setup</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../architecture.html">Architecture</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../api.html">API reference</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../testing.html">Testing guide</a></li>
+</ul>
+
+        </div>
+      </div>
+    </nav>
+
+    <section data-toggle="wy-nav-shift" class="wy-nav-content-wrap"><nav class="wy-nav-top" aria-label="Mobile navigation menu" >
+          <i data-toggle="wy-nav-top" class="fa fa-bars"></i>
+          <a href="../index.html">Grad Cafe Analytics</a>
+      </nav>
+
+      <div class="wy-nav-content">
+        <div class="rst-content">
+          <div role="navigation" aria-label="Page navigation">
+  <ul class="wy-breadcrumbs">
+      <li><a href="../index.html" class="icon icon-home" aria-label="Home"></a></li>
+          <li class="breadcrumb-item"><a href="index.html">Module code</a></li>
+      <li class="breadcrumb-item active">app</li>
+      <li class="wy-breadcrumbs-aside">
+      </li>
+  </ul>
+  <hr/>
+</div>
+          <div role="main" class="document" itemscope="itemscope" itemtype="http://schema.org/Article">
+           <div itemprop="articleBody">
+             
+  <h1>Source code for app</h1><div class="highlight"><pre>
+<span></span><span class="sd">&quot;&quot;&quot;Flask analysis page with Pull Data and Update Analysis buttons.</span>
+
+<span class="sd">Built by the create_app factory so tests can construct an isolated application</span>
+<span class="sd">that reads fake rows and starts a fake scraper. Run from src/: flask --app app run</span>
+<span class="sd">&quot;&quot;&quot;</span>
+
+<span class="kn">import</span><span class="w"> </span><span class="nn">json</span>
+<span class="kn">import</span><span class="w"> </span><span class="nn">os</span>
+<span class="kn">import</span><span class="w"> </span><span class="nn">subprocess</span>
+<span class="kn">import</span><span class="w"> </span><span class="nn">sys</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">datetime</span><span class="w"> </span><span class="kn">import</span> <span class="n">datetime</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">pathlib</span><span class="w"> </span><span class="kn">import</span> <span class="n">Path</span>
+
+<span class="kn">import</span><span class="w"> </span><span class="nn">models</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">flask</span><span class="w"> </span><span class="kn">import</span> <span class="n">Flask</span><span class="p">,</span> <span class="n">current_app</span><span class="p">,</span> <span class="n">jsonify</span><span class="p">,</span> <span class="n">redirect</span><span class="p">,</span> <span class="n">render_template</span><span class="p">,</span> <span class="n">request</span><span class="p">,</span> <span class="n">url_for</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">models</span><span class="w"> </span><span class="kn">import</span> <span class="n">Applicant</span><span class="p">,</span> <span class="n">Session</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">orm_queries</span><span class="w"> </span><span class="kn">import</span> <span class="n">QUESTIONS</span><span class="p">,</span> <span class="n">format_value</span><span class="p">,</span> <span class="n">run_queries</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">sqlalchemy</span><span class="w"> </span><span class="kn">import</span> <span class="n">func</span><span class="p">,</span> <span class="n">select</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">sqlalchemy.exc</span><span class="w"> </span><span class="kn">import</span> <span class="n">SQLAlchemyError</span>
+
+<span class="n">BASE_DIR</span> <span class="o">=</span> <span class="n">Path</span><span class="p">(</span><span class="vm">__file__</span><span class="p">)</span><span class="o">.</span><span class="n">resolve</span><span class="p">()</span><span class="o">.</span><span class="n">parent</span>
+<span class="n">STATUS_PATH</span> <span class="o">=</span> <span class="n">BASE_DIR</span> <span class="o">/</span> <span class="s2">&quot;pull_status.json&quot;</span>
+<span class="n">PULL_SCRIPT</span> <span class="o">=</span> <span class="n">BASE_DIR</span> <span class="o">/</span> <span class="s2">&quot;pull_data.py&quot;</span>
+
+<span class="n">HEADINGS</span> <span class="o">=</span> <span class="p">{</span>
+    <span class="s2">&quot;fall_2026_count&quot;</span><span class="p">:</span> <span class="s2">&quot;Applicants&quot;</span><span class="p">,</span>
+    <span class="s2">&quot;percent_international&quot;</span><span class="p">:</span> <span class="s2">&quot;Percent International&quot;</span><span class="p">,</span>
+    <span class="s2">&quot;average_gpa&quot;</span><span class="p">:</span> <span class="s2">&quot;Average GPA&quot;</span><span class="p">,</span>
+    <span class="s2">&quot;average_gre_quantitative&quot;</span><span class="p">:</span> <span class="s2">&quot;Average GRE Quantitative&quot;</span><span class="p">,</span>
+    <span class="s2">&quot;average_gre_verbal&quot;</span><span class="p">:</span> <span class="s2">&quot;Average GRE Verbal&quot;</span><span class="p">,</span>
+    <span class="s2">&quot;average_gre_analytical_writing&quot;</span><span class="p">:</span> <span class="s2">&quot;Average GRE Analytical Writing&quot;</span><span class="p">,</span>
+    <span class="s2">&quot;acceptance_percentage&quot;</span><span class="p">:</span> <span class="s2">&quot;Acceptance Percentage&quot;</span><span class="p">,</span>
+    <span class="s2">&quot;jhu_cs_masters_count&quot;</span><span class="p">:</span> <span class="s2">&quot;Entries&quot;</span><span class="p">,</span>
+    <span class="s2">&quot;original_field_count&quot;</span><span class="p">:</span> <span class="s2">&quot;Original Fields&quot;</span><span class="p">,</span>
+    <span class="s2">&quot;llm_field_count&quot;</span><span class="p">:</span> <span class="s2">&quot;LLM Fields&quot;</span><span class="p">,</span>
+    <span class="s2">&quot;lowest_accepted_gpa&quot;</span><span class="p">:</span> <span class="s2">&quot;Lowest Accepted GPA&quot;</span><span class="p">,</span>
+    <span class="s2">&quot;lowest_american_gpa&quot;</span><span class="p">:</span> <span class="s2">&quot;Lowest American GPA&quot;</span><span class="p">,</span>
+    <span class="s2">&quot;lowest_international_gpa&quot;</span><span class="p">:</span> <span class="s2">&quot;Lowest International GPA&quot;</span><span class="p">,</span>
+<span class="p">}</span>
+
+<span class="n">NOTICES</span> <span class="o">=</span> <span class="p">{</span>
+    <span class="s2">&quot;started&quot;</span><span class="p">:</span> <span class="p">(</span><span class="s2">&quot;info&quot;</span><span class="p">,</span> <span class="s2">&quot;Data pull started. This page refreshes itself while it runs.&quot;</span><span class="p">),</span>
+    <span class="s2">&quot;already-running&quot;</span><span class="p">:</span> <span class="p">(</span><span class="s2">&quot;warn&quot;</span><span class="p">,</span> <span class="s2">&quot;A data pull is already running, so a second one was not started.&quot;</span><span class="p">),</span>
+    <span class="s2">&quot;updated&quot;</span><span class="p">:</span> <span class="p">(</span><span class="s2">&quot;ok&quot;</span><span class="p">,</span> <span class="s2">&quot;Results refreshed.&quot;</span><span class="p">),</span>
+    <span class="s2">&quot;updated-busy&quot;</span><span class="p">:</span> <span class="p">(</span>
+        <span class="s2">&quot;info&quot;</span><span class="p">,</span>
+        <span class="p">(</span><span class="s2">&quot;Results refreshed. New data is still being retrieved, &quot;</span>
+        <span class="s2">&quot;so the newest entries may not appear yet.&quot;</span><span class="p">),</span>
+    <span class="p">),</span>
+<span class="p">}</span>
+
+
+<div class="viewcode-block" id="heading">
+<a class="viewcode-back" href="../api.html#app.heading">[docs]</a>
+<span class="k">def</span><span class="w"> </span><span class="nf">heading</span><span class="p">(</span><span class="n">column</span><span class="p">):</span>
+    <span class="k">return</span> <span class="n">HEADINGS</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="n">column</span><span class="p">,</span> <span class="n">column</span><span class="o">.</span><span class="n">replace</span><span class="p">(</span><span class="s2">&quot;_&quot;</span><span class="p">,</span> <span class="s2">&quot; &quot;</span><span class="p">)</span><span class="o">.</span><span class="n">title</span><span class="p">())</span></div>
+
+
+
+<div class="viewcode-block" id="build_blocks">
+<a class="viewcode-back" href="../api.html#app.build_blocks">[docs]</a>
+<span class="k">def</span><span class="w"> </span><span class="nf">build_blocks</span><span class="p">(</span><span class="n">results</span><span class="p">):</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;Shape each question&#39;s rows so one template block renders all of them.&quot;&quot;&quot;</span>
+    <span class="n">blocks</span> <span class="o">=</span> <span class="p">[]</span>
+    <span class="k">for</span> <span class="n">number</span><span class="p">,</span> <span class="n">rows</span> <span class="ow">in</span> <span class="n">results</span><span class="o">.</span><span class="n">items</span><span class="p">():</span>
+        <span class="n">columns</span> <span class="o">=</span> <span class="nb">list</span><span class="p">(</span><span class="n">rows</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span><span class="o">.</span><span class="n">keys</span><span class="p">())</span> <span class="k">if</span> <span class="n">rows</span> <span class="k">else</span> <span class="p">[]</span>
+        <span class="n">table</span> <span class="o">=</span> <span class="p">[[</span><span class="n">format_value</span><span class="p">(</span><span class="n">value</span><span class="p">,</span> <span class="n">column</span><span class="p">)</span> <span class="k">for</span> <span class="n">column</span><span class="p">,</span> <span class="n">value</span> <span class="ow">in</span> <span class="n">row</span><span class="o">.</span><span class="n">items</span><span class="p">()]</span> <span class="k">for</span> <span class="n">row</span> <span class="ow">in</span> <span class="n">rows</span><span class="p">]</span>
+        <span class="n">blocks</span><span class="o">.</span><span class="n">append</span><span class="p">({</span>
+            <span class="s2">&quot;number&quot;</span><span class="p">:</span> <span class="n">number</span><span class="p">,</span>
+            <span class="s2">&quot;question&quot;</span><span class="p">:</span> <span class="n">QUESTIONS</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="n">number</span><span class="p">,</span> <span class="s2">&quot;&quot;</span><span class="p">),</span>
+            <span class="s2">&quot;headings&quot;</span><span class="p">:</span> <span class="p">[</span><span class="n">heading</span><span class="p">(</span><span class="n">column</span><span class="p">)</span> <span class="k">for</span> <span class="n">column</span> <span class="ow">in</span> <span class="n">columns</span><span class="p">],</span>
+            <span class="s2">&quot;rows&quot;</span><span class="p">:</span> <span class="n">table</span><span class="p">,</span>
+            <span class="s2">&quot;single&quot;</span><span class="p">:</span> <span class="nb">len</span><span class="p">(</span><span class="n">table</span><span class="p">)</span> <span class="o">==</span> <span class="mi">1</span> <span class="ow">and</span> <span class="nb">len</span><span class="p">(</span><span class="n">columns</span><span class="p">)</span> <span class="o">==</span> <span class="mi">1</span><span class="p">,</span>
+        <span class="p">})</span>
+    <span class="k">return</span> <span class="n">blocks</span></div>
+
+
+
+<div class="viewcode-block" id="database_analysis">
+<a class="viewcode-back" href="../api.html#app.database_analysis">[docs]</a>
+<span class="k">def</span><span class="w"> </span><span class="nf">database_analysis</span><span class="p">():</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;Read the eleven answers and the row count from PostgreSQL as (blocks, total).&quot;&quot;&quot;</span>
+    <span class="k">with</span> <span class="n">Session</span><span class="p">()</span> <span class="k">as</span> <span class="n">session</span><span class="p">:</span>
+        <span class="n">blocks</span> <span class="o">=</span> <span class="n">build_blocks</span><span class="p">(</span><span class="n">run_queries</span><span class="p">(</span><span class="n">session</span><span class="p">))</span>
+        <span class="n">total</span> <span class="o">=</span> <span class="n">session</span><span class="o">.</span><span class="n">scalar</span><span class="p">(</span><span class="n">select</span><span class="p">(</span><span class="n">func</span><span class="o">.</span><span class="n">count</span><span class="p">())</span><span class="o">.</span><span class="n">select_from</span><span class="p">(</span><span class="n">Applicant</span><span class="p">))</span>
+    <span class="k">return</span> <span class="n">blocks</span><span class="p">,</span> <span class="n">total</span></div>
+
+
+
+<div class="viewcode-block" id="spawn_pull">
+<a class="viewcode-back" href="../api.html#app.spawn_pull">[docs]</a>
+<span class="k">def</span><span class="w"> </span><span class="nf">spawn_pull</span><span class="p">():</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;Start pull_data.py in its own process and return the handle.&quot;&quot;&quot;</span>
+    <span class="k">return</span> <span class="n">subprocess</span><span class="o">.</span><span class="n">Popen</span><span class="p">([</span><span class="n">sys</span><span class="o">.</span><span class="n">executable</span><span class="p">,</span> <span class="nb">str</span><span class="p">(</span><span class="n">PULL_SCRIPT</span><span class="p">)],</span> <span class="n">cwd</span><span class="o">=</span><span class="n">BASE_DIR</span><span class="p">)</span></div>
+
+
+
+<div class="viewcode-block" id="PullState">
+<a class="viewcode-back" href="../api.html#app.PullState">[docs]</a>
+<span class="k">class</span><span class="w"> </span><span class="nc">PullState</span><span class="p">:</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;Busy state for the Pull Data button, kept on an instance so tests can inject a fake.&quot;&quot;&quot;</span>
+
+    <span class="k">def</span><span class="w"> </span><span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">runner</span><span class="o">=</span><span class="kc">None</span><span class="p">):</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">runner</span> <span class="o">=</span> <span class="n">runner</span> <span class="ow">or</span> <span class="n">spawn_pull</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">process</span> <span class="o">=</span> <span class="kc">None</span>
+
+<div class="viewcode-block" id="PullState.running">
+<a class="viewcode-back" href="../api.html#app.PullState.running">[docs]</a>
+    <span class="k">def</span><span class="w"> </span><span class="nf">running</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Return True while a started pull is still alive.&quot;&quot;&quot;</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">process</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span> <span class="ow">and</span> <span class="bp">self</span><span class="o">.</span><span class="n">process</span><span class="o">.</span><span class="n">poll</span><span class="p">()</span> <span class="ow">is</span> <span class="kc">None</span></div>
+
+
+<div class="viewcode-block" id="PullState.start">
+<a class="viewcode-back" href="../api.html#app.PullState.start">[docs]</a>
+    <span class="k">def</span><span class="w"> </span><span class="nf">start</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Start a pull and remember the process.&quot;&quot;&quot;</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">process</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">runner</span><span class="p">()</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">process</span></div>
+
+
+<div class="viewcode-block" id="PullState.died_quietly">
+<a class="viewcode-back" href="../api.html#app.PullState.died_quietly">[docs]</a>
+    <span class="k">def</span><span class="w"> </span><span class="nf">died_quietly</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Return True when the last pull exited non-zero without a status file.&quot;&quot;&quot;</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">process</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span> <span class="ow">and</span> <span class="nb">bool</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">process</span><span class="o">.</span><span class="n">poll</span><span class="p">())</span></div>
+</div>
+
+
+
+<div class="viewcode-block" id="last_pull">
+<a class="viewcode-back" href="../api.html#app.last_pull">[docs]</a>
+<span class="k">def</span><span class="w"> </span><span class="nf">last_pull</span><span class="p">(</span><span class="n">status_path</span><span class="p">,</span> <span class="n">state</span><span class="p">):</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;Summarize the most recent pull, or None when nothing is known.&quot;&quot;&quot;</span>
+    <span class="n">status_path</span> <span class="o">=</span> <span class="n">Path</span><span class="p">(</span><span class="n">status_path</span><span class="p">)</span>
+    <span class="k">if</span> <span class="ow">not</span> <span class="n">status_path</span><span class="o">.</span><span class="n">exists</span><span class="p">():</span>
+        <span class="c1"># A pull that died before writing is reported.</span>
+        <span class="k">if</span> <span class="n">state</span><span class="o">.</span><span class="n">died_quietly</span><span class="p">():</span>
+            <span class="k">return</span> <span class="p">{</span><span class="s2">&quot;state&quot;</span><span class="p">:</span> <span class="s2">&quot;failed&quot;</span><span class="p">,</span> <span class="s2">&quot;when&quot;</span><span class="p">:</span> <span class="n">datetime</span><span class="o">.</span><span class="n">now</span><span class="p">()</span><span class="o">.</span><span class="n">strftime</span><span class="p">(</span><span class="s2">&quot;%I:%M %p&quot;</span><span class="p">),</span>
+                    <span class="s2">&quot;message&quot;</span><span class="p">:</span> <span class="s2">&quot;The pull stopped before reporting a result.&quot;</span><span class="p">}</span>
+        <span class="k">return</span> <span class="kc">None</span>
+    <span class="k">try</span><span class="p">:</span>
+        <span class="n">status</span> <span class="o">=</span> <span class="n">json</span><span class="o">.</span><span class="n">loads</span><span class="p">(</span><span class="n">status_path</span><span class="o">.</span><span class="n">read_text</span><span class="p">(</span><span class="n">encoding</span><span class="o">=</span><span class="s2">&quot;utf-8&quot;</span><span class="p">))</span>
+    <span class="k">except</span> <span class="p">(</span><span class="ne">OSError</span><span class="p">,</span> <span class="n">json</span><span class="o">.</span><span class="n">JSONDecodeError</span><span class="p">):</span>
+        <span class="k">return</span> <span class="kc">None</span>
+    <span class="n">status</span><span class="p">[</span><span class="s2">&quot;when&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="n">datetime</span><span class="o">.</span><span class="n">fromtimestamp</span><span class="p">(</span><span class="n">status</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&quot;finished&quot;</span><span class="p">,</span> <span class="mi">0</span><span class="p">))</span><span class="o">.</span><span class="n">strftime</span><span class="p">(</span><span class="s2">&quot;%I:%M %p&quot;</span><span class="p">)</span>
+    <span class="k">return</span> <span class="n">status</span></div>
+
+
+
+<div class="viewcode-block" id="wants_json">
+<a class="viewcode-back" href="../api.html#app.wants_json">[docs]</a>
+<span class="k">def</span><span class="w"> </span><span class="nf">wants_json</span><span class="p">():</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;Answer button posts with JSON unless the caller ranks HTML higher, as browsers do.&quot;&quot;&quot;</span>
+    <span class="n">accept</span> <span class="o">=</span> <span class="n">request</span><span class="o">.</span><span class="n">accept_mimetypes</span>
+    <span class="k">return</span> <span class="n">accept</span><span class="p">[</span><span class="s2">&quot;application/json&quot;</span><span class="p">]</span> <span class="o">&gt;=</span> <span class="n">accept</span><span class="p">[</span><span class="s2">&quot;text/html&quot;</span><span class="p">]</span></div>
+
+
+
+<div class="viewcode-block" id="create_app">
+<a class="viewcode-back" href="../api.html#app.create_app">[docs]</a>
+<span class="k">def</span><span class="w"> </span><span class="nf">create_app</span><span class="p">(</span><span class="n">config</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="o">*</span><span class="p">,</span> <span class="n">analysis_source</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">pull_runner</span><span class="o">=</span><span class="kc">None</span><span class="p">):</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;Build the app, letting tests override config and inject fake data and scraper callables.&quot;&quot;&quot;</span>
+    <span class="n">app</span> <span class="o">=</span> <span class="n">Flask</span><span class="p">(</span><span class="vm">__name__</span><span class="p">)</span>
+    <span class="n">app</span><span class="o">.</span><span class="n">config</span><span class="o">.</span><span class="n">update</span><span class="p">(</span>
+        <span class="n">DATABASE_URL</span><span class="o">=</span><span class="n">os</span><span class="o">.</span><span class="n">environ</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&quot;DATABASE_URL&quot;</span><span class="p">,</span> <span class="s2">&quot;&quot;</span><span class="p">),</span>
+        <span class="n">PULL_STATUS_PATH</span><span class="o">=</span><span class="nb">str</span><span class="p">(</span><span class="n">STATUS_PATH</span><span class="p">),</span>
+    <span class="p">)</span>
+    <span class="n">app</span><span class="o">.</span><span class="n">config</span><span class="o">.</span><span class="n">update</span><span class="p">(</span><span class="n">config</span> <span class="ow">or</span> <span class="p">{})</span>
+
+    <span class="k">if</span> <span class="n">app</span><span class="o">.</span><span class="n">config</span><span class="p">[</span><span class="s2">&quot;DATABASE_URL&quot;</span><span class="p">]:</span>
+        <span class="n">models</span><span class="o">.</span><span class="n">configure</span><span class="p">(</span><span class="n">app</span><span class="o">.</span><span class="n">config</span><span class="p">[</span><span class="s2">&quot;DATABASE_URL&quot;</span><span class="p">])</span>
+
+    <span class="n">app</span><span class="o">.</span><span class="n">extensions</span><span class="p">[</span><span class="s2">&quot;analysis_source&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="n">analysis_source</span> <span class="ow">or</span> <span class="n">database_analysis</span>
+    <span class="n">app</span><span class="o">.</span><span class="n">extensions</span><span class="p">[</span><span class="s2">&quot;pull_state&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="n">PullState</span><span class="p">(</span><span class="n">pull_runner</span><span class="p">)</span>
+
+    <span class="nd">@app</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&quot;/&quot;</span><span class="p">)</span>
+    <span class="nd">@app</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&quot;/analysis&quot;</span><span class="p">)</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">analysis</span><span class="p">():</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Render the analysis page; both paths serve it so older links keep working.&quot;&quot;&quot;</span>
+        <span class="n">state</span> <span class="o">=</span> <span class="n">current_app</span><span class="o">.</span><span class="n">extensions</span><span class="p">[</span><span class="s2">&quot;pull_state&quot;</span><span class="p">]</span>
+        <span class="n">blocks</span><span class="p">,</span> <span class="n">total</span><span class="p">,</span> <span class="n">error</span> <span class="o">=</span> <span class="p">[],</span> <span class="kc">None</span><span class="p">,</span> <span class="kc">None</span>
+        <span class="k">try</span><span class="p">:</span>
+            <span class="n">blocks</span><span class="p">,</span> <span class="n">total</span> <span class="o">=</span> <span class="n">current_app</span><span class="o">.</span><span class="n">extensions</span><span class="p">[</span><span class="s2">&quot;analysis_source&quot;</span><span class="p">]()</span>
+        <span class="k">except</span> <span class="n">SQLAlchemyError</span> <span class="k">as</span> <span class="n">database_error</span><span class="p">:</span>
+            <span class="n">error</span> <span class="o">=</span> <span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Could not read the database: </span><span class="si">{</span><span class="n">database_error</span><span class="si">}</span><span class="s2">. &quot;</span>
+                     <span class="s2">&quot;Check that PostgreSQL is running and DATABASE_URL or the &quot;</span>
+                     <span class="s2">&quot;PG* variables are set.&quot;</span><span class="p">)</span>
+
+        <span class="k">return</span> <span class="n">render_template</span><span class="p">(</span>
+            <span class="s2">&quot;index.html&quot;</span><span class="p">,</span>
+            <span class="n">blocks</span><span class="o">=</span><span class="n">blocks</span><span class="p">,</span>
+            <span class="n">total</span><span class="o">=</span><span class="n">total</span><span class="p">,</span>
+            <span class="n">error</span><span class="o">=</span><span class="n">error</span><span class="p">,</span>
+            <span class="n">notice</span><span class="o">=</span><span class="n">NOTICES</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="n">request</span><span class="o">.</span><span class="n">args</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&quot;notice&quot;</span><span class="p">,</span> <span class="s2">&quot;&quot;</span><span class="p">)),</span>
+            <span class="n">pulling</span><span class="o">=</span><span class="n">state</span><span class="o">.</span><span class="n">running</span><span class="p">(),</span>
+            <span class="n">pull</span><span class="o">=</span><span class="n">last_pull</span><span class="p">(</span><span class="n">current_app</span><span class="o">.</span><span class="n">config</span><span class="p">[</span><span class="s2">&quot;PULL_STATUS_PATH&quot;</span><span class="p">],</span> <span class="n">state</span><span class="p">),</span>
+            <span class="n">generated</span><span class="o">=</span><span class="n">datetime</span><span class="o">.</span><span class="n">now</span><span class="p">()</span><span class="o">.</span><span class="n">strftime</span><span class="p">(</span><span class="s2">&quot;%b </span><span class="si">%d</span><span class="s2">, %Y at %I:%M:%S %p&quot;</span><span class="p">),</span>
+        <span class="p">)</span>
+
+    <span class="nd">@app</span><span class="o">.</span><span class="n">post</span><span class="p">(</span><span class="s2">&quot;/pull-data&quot;</span><span class="p">)</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">pull_data</span><span class="p">():</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Start a scrape unless one is already in progress.&quot;&quot;&quot;</span>
+        <span class="n">state</span> <span class="o">=</span> <span class="n">current_app</span><span class="o">.</span><span class="n">extensions</span><span class="p">[</span><span class="s2">&quot;pull_state&quot;</span><span class="p">]</span>
+        <span class="k">if</span> <span class="n">state</span><span class="o">.</span><span class="n">running</span><span class="p">():</span>
+            <span class="k">if</span> <span class="n">wants_json</span><span class="p">():</span>
+                <span class="k">return</span> <span class="n">jsonify</span><span class="p">(</span><span class="n">busy</span><span class="o">=</span><span class="kc">True</span><span class="p">),</span> <span class="mi">409</span>
+            <span class="k">return</span> <span class="n">redirect</span><span class="p">(</span><span class="n">url_for</span><span class="p">(</span><span class="s2">&quot;analysis&quot;</span><span class="p">,</span> <span class="n">notice</span><span class="o">=</span><span class="s2">&quot;already-running&quot;</span><span class="p">))</span>
+
+        <span class="n">Path</span><span class="p">(</span><span class="n">current_app</span><span class="o">.</span><span class="n">config</span><span class="p">[</span><span class="s2">&quot;PULL_STATUS_PATH&quot;</span><span class="p">])</span><span class="o">.</span><span class="n">unlink</span><span class="p">(</span><span class="n">missing_ok</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+        <span class="n">state</span><span class="o">.</span><span class="n">start</span><span class="p">()</span>
+        <span class="k">if</span> <span class="n">wants_json</span><span class="p">():</span>
+            <span class="k">return</span> <span class="n">jsonify</span><span class="p">(</span><span class="n">ok</span><span class="o">=</span><span class="kc">True</span><span class="p">),</span> <span class="mi">202</span>
+        <span class="k">return</span> <span class="n">redirect</span><span class="p">(</span><span class="n">url_for</span><span class="p">(</span><span class="s2">&quot;analysis&quot;</span><span class="p">,</span> <span class="n">notice</span><span class="o">=</span><span class="s2">&quot;started&quot;</span><span class="p">))</span>
+
+    <span class="nd">@app</span><span class="o">.</span><span class="n">post</span><span class="p">(</span><span class="s2">&quot;/update-analysis&quot;</span><span class="p">)</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">update_analysis</span><span class="p">():</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Re-run the queries, unless a pull is still writing rows.&quot;&quot;&quot;</span>
+        <span class="n">state</span> <span class="o">=</span> <span class="n">current_app</span><span class="o">.</span><span class="n">extensions</span><span class="p">[</span><span class="s2">&quot;pull_state&quot;</span><span class="p">]</span>
+        <span class="k">if</span> <span class="n">state</span><span class="o">.</span><span class="n">running</span><span class="p">():</span>
+            <span class="k">if</span> <span class="n">wants_json</span><span class="p">():</span>
+                <span class="k">return</span> <span class="n">jsonify</span><span class="p">(</span><span class="n">busy</span><span class="o">=</span><span class="kc">True</span><span class="p">),</span> <span class="mi">409</span>
+            <span class="k">return</span> <span class="n">redirect</span><span class="p">(</span><span class="n">url_for</span><span class="p">(</span><span class="s2">&quot;analysis&quot;</span><span class="p">,</span> <span class="n">notice</span><span class="o">=</span><span class="s2">&quot;updated-busy&quot;</span><span class="p">))</span>
+
+        <span class="k">if</span> <span class="n">wants_json</span><span class="p">():</span>
+            <span class="k">return</span> <span class="n">jsonify</span><span class="p">(</span><span class="n">ok</span><span class="o">=</span><span class="kc">True</span><span class="p">),</span> <span class="mi">200</span>
+        <span class="k">return</span> <span class="n">redirect</span><span class="p">(</span><span class="n">url_for</span><span class="p">(</span><span class="s2">&quot;analysis&quot;</span><span class="p">,</span> <span class="n">notice</span><span class="o">=</span><span class="s2">&quot;updated&quot;</span><span class="p">))</span>
+
+    <span class="k">return</span> <span class="n">app</span></div>
+
+
+
+<span class="n">app</span> <span class="o">=</span> <span class="n">create_app</span><span class="p">()</span>
+
+
+<span class="k">if</span> <span class="vm">__name__</span> <span class="o">==</span> <span class="s2">&quot;__main__&quot;</span><span class="p">:</span>
+    <span class="n">app</span><span class="o">.</span><span class="n">run</span><span class="p">()</span>
+</pre></div>
+
+           </div>
+          </div>
+          <footer>
+
+  <hr/>
+
+  <div role="contentinfo">
+    <p>&#169; Copyright .</p>
+  </div>
+
+  Built with <a href="https://www.sphinx-doc.org/">Sphinx</a> using a
+    <a href="https://github.com/readthedocs/sphinx_rtd_theme">theme</a>
+    provided by <a href="https://readthedocs.org">Read the Docs</a>.
+   
+
+</footer>
+        </div>
+      </div>
+    </section>
+  </div>
+  <script>
+      jQuery(function () {
+          SphinxRtdTheme.Navigation.enable(true);
+      });
+  </script> 
+
+</body>
+</html>

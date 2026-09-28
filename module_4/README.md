@@ -63,3 +63,14 @@ Run from this folder so pytest finds `pytest.ini`. No database or network is nee
 python -m pytest                                                    # whole suite, with coverage
 python -m pytest -m "web or buttons or analysis or db or integration"   # same, by marker
 ```
+
+## Documentation
+
+Published Sphinx docs: **https://jhu-software-concepts.readthedocs.io/** — overview and
+setup, architecture, API reference, and the testing guide.
+
+Build them locally into `docs/_build/html`:
+
+```bash
+python -m sphinx -b html docs docs/_build/html
+```

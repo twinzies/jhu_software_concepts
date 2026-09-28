@@ -1,3 +1,5 @@
+"""Reshape scraped Grad Cafe records into the cleaned applicant format."""
+
 import json
 from pathlib import Path
 

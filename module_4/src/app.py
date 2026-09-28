@@ -1,4 +1,4 @@
-"""Parts 8-10: analysis page with Pull Data and Update Analysis buttons.
+"""Flask analysis page with Pull Data and Update Analysis buttons.
 
 Built by the create_app factory so tests can construct an isolated application
 that reads fake rows and starts a fake scraper. Run from src/: flask --app app run

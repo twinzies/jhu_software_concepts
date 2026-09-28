@@ -1,4 +1,4 @@
-"""Part 5A"""
+"""SQLAlchemy model and session factory for the applicants table."""
 
 import os
 from datetime import date

@@ -1,0 +1,361 @@
+
+
+<!DOCTYPE html>
+<html class="writer-html5" lang="en" data-content_root="../">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>query_data &mdash; Grad Cafe Analytics 1.0 documentation</title>
+      <link rel="stylesheet" type="text/css" href="../_static/pygments.css?v=b86133f3" />
+      <link rel="stylesheet" type="text/css" href="../_static/css/theme.css?v=9edc463e" />
+
+  
+      <script src="../_static/jquery.js?v=5d32c60e"></script>
+      <script src="../_static/_sphinx_javascript_frameworks_compat.js?v=2cd50e6c"></script>
+      <script src="../_static/documentation_options.js?v=f2a433a1"></script>
+      <script src="../_static/doctools.js?v=fd6eb6e6"></script>
+      <script src="../_static/sphinx_highlight.js?v=6ffebe34"></script>
+    <script src="../_static/js/theme.js"></script>
+    <link rel="index" title="Index" href="../genindex.html" />
+    <link rel="search" title="Search" href="../search.html" /> 
+</head>
+
+<body class="wy-body-for-nav"> 
+  <div class="wy-grid-for-nav">
+    <nav data-toggle="wy-nav-shift" class="wy-nav-side">
+      <div class="wy-side-scroll">
+        <div class="wy-side-nav-search" >
+
+          
+          
+          <a href="../index.html" class="icon icon-home">
+            Grad Cafe Analytics
+          </a>
+<div role="search">
+  <form id="rtd-search-form" class="wy-form" action="../search.html" method="get">
+    <input type="text" name="q" placeholder="Search docs" aria-label="Search docs" />
+    <input type="hidden" name="check_keywords" value="yes" />
+    <input type="hidden" name="area" value="default" />
+  </form>
+</div>
+        </div><div class="wy-menu wy-menu-vertical" data-spy="affix" role="navigation" aria-label="Navigation menu">
+              <ul>
+<li class="toctree-l1"><a class="reference internal" href="../overview.html">Overview and setup</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../architecture.html">Architecture</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../api.html">API reference</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../testing.html">Testing guide</a></li>
+</ul>
+
+        </div>
+      </div>
+    </nav>
+
+    <section data-toggle="wy-nav-shift" class="wy-nav-content-wrap"><nav class="wy-nav-top" aria-label="Mobile navigation menu" >
+          <i data-toggle="wy-nav-top" class="fa fa-bars"></i>
+          <a href="../index.html">Grad Cafe Analytics</a>
+      </nav>
+
+      <div class="wy-nav-content">
+        <div class="rst-content">
+          <div role="navigation" aria-label="Page navigation">
+  <ul class="wy-breadcrumbs">
+      <li><a href="../index.html" class="icon icon-home" aria-label="Home"></a></li>
+          <li class="breadcrumb-item"><a href="index.html">Module code</a></li>
+      <li class="breadcrumb-item active">query_data</li>
+      <li class="wy-breadcrumbs-aside">
+      </li>
+  </ul>
+  <hr/>
+</div>
+          <div role="main" class="document" itemscope="itemscope" itemtype="http://schema.org/Article">
+           <div itemprop="articleBody">
+             
+  <h1>Source code for query_data</h1><div class="highlight"><pre>
+<span></span><span class="sd">&quot;&quot;&quot;Answer the eleven analysis questions in raw SQL and print them.</span>
+
+<span class="sd">Run from src/: python query_data.py. Connection settings come from DATABASE_URL</span>
+<span class="sd">or the PG* environment variables.</span>
+<span class="sd">&quot;&quot;&quot;</span>
+
+<span class="kn">from</span><span class="w"> </span><span class="nn">decimal</span><span class="w"> </span><span class="kn">import</span> <span class="n">Decimal</span>
+<span class="kn">import</span><span class="w"> </span><span class="nn">sys</span>
+
+<span class="kn">import</span><span class="w"> </span><span class="nn">psycopg</span>
+
+
+<span class="c1"># Queries are listed in question order; results print as Q1, Q2, and so on.</span>
+<span class="n">QUERIES</span> <span class="o">=</span> <span class="p">[</span>
+    <span class="c1"># Question 1: Number of applicants for Fall 2026.</span>
+<span class="w">    </span><span class="sa">r</span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">    SELECT COUNT(*) AS fall_2026_count</span>
+<span class="sd">    FROM applicants</span>
+<span class="sd">    WHERE LOWER(term) = &#39;fall 2026&#39;;</span>
+<span class="sd">    &quot;&quot;&quot;</span><span class="p">,</span>
+
+    <span class="c1"># Question 2: International percentage among reported nationalities.</span>
+<span class="w">    </span><span class="sa">r</span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">    SELECT ROUND(</span>
+<span class="sd">        100.0 * COUNT(*) FILTER (</span>
+<span class="sd">            WHERE LOWER(us_or_international) = &#39;international&#39;</span>
+<span class="sd">        ) / NULLIF(COUNT(*), 0), 2</span>
+<span class="sd">    ) || &#39;%&#39; AS percent_international</span>
+<span class="sd">    FROM applicants</span>
+<span class="sd">    WHERE us_or_international IS NOT NULL</span>
+<span class="sd">      AND us_or_international &lt;&gt; &#39;&#39;;</span>
+<span class="sd">    &quot;&quot;&quot;</span><span class="p">,</span>
+
+    <span class="c1"># Question 3: Average each reported GPA/GRE metric independently.</span>
+<span class="w">    </span><span class="sa">r</span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">    SELECT</span>
+<span class="sd">        ROUND(AVG(gpa)::numeric, 2) AS average_gpa,</span>
+<span class="sd">        ROUND(AVG(gre)::numeric, 2) AS average_gre_quantitative,</span>
+<span class="sd">        ROUND(AVG(gre_v)::numeric, 2) AS average_gre_verbal,</span>
+<span class="sd">        ROUND(AVG(gre_aw)::numeric, 2) AS average_gre_analytical_writing</span>
+<span class="sd">    FROM applicants;</span>
+<span class="sd">    &quot;&quot;&quot;</span><span class="p">,</span>
+
+    <span class="c1"># Question 4: Average GPA of American applicants for Fall 2026.</span>
+<span class="w">    </span><span class="sa">r</span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">    SELECT ROUND(AVG(gpa)::numeric, 2) AS average_gpa</span>
+<span class="sd">    FROM applicants</span>
+<span class="sd">    WHERE LOWER(term) = &#39;fall 2026&#39;</span>
+<span class="sd">      AND LOWER(us_or_international) = &#39;american&#39;</span>
+<span class="sd">      AND gpa IS NOT NULL;</span>
+<span class="sd">    &quot;&quot;&quot;</span><span class="p">,</span>
+
+    <span class="c1"># Question 5: Fall 2025 acceptance percentage, excluding unreported status.</span>
+    <span class="c1"># The assignment uses all Fall 2025 entries; this keeps your requested exclusion.</span>
+<span class="w">    </span><span class="sa">r</span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">    SELECT ROUND(</span>
+<span class="sd">        100.0 * COUNT(*) FILTER (WHERE LOWER(status) = &#39;accepted&#39;)</span>
+<span class="sd">        / NULLIF(COUNT(*), 0), 2</span>
+<span class="sd">    ) || &#39;%&#39; AS acceptance_percentage</span>
+<span class="sd">    FROM applicants</span>
+<span class="sd">    WHERE LOWER(term) = &#39;fall 2025&#39;</span>
+<span class="sd">      AND status IS NOT NULL</span>
+<span class="sd">      AND status &lt;&gt; &#39;&#39;;</span>
+<span class="sd">    &quot;&quot;&quot;</span><span class="p">,</span>
+
+    <span class="c1"># Question 6: Average GPA of accepted Fall 2026 applicants.</span>
+<span class="w">    </span><span class="sa">r</span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">    SELECT ROUND(AVG(gpa)::numeric, 2) AS average_gpa</span>
+<span class="sd">    FROM applicants</span>
+<span class="sd">    WHERE LOWER(term) = &#39;fall 2026&#39;</span>
+<span class="sd">      AND LOWER(status) = &#39;accepted&#39;</span>
+<span class="sd">      AND gpa IS NOT NULL;</span>
+<span class="sd">    &quot;&quot;&quot;</span><span class="p">,</span>
+
+    <span class="c1"># Question 7: Johns Hopkins Computer Science master&#39;s entries (original fields).</span>
+    <span class="c1"># Whole-word JHU matching recognizes the university abbreviation.</span>
+<span class="w">    </span><span class="sa">r</span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">    SELECT COUNT(*) AS jhu_cs_masters_count</span>
+<span class="sd">    FROM applicants</span>
+<span class="sd">    WHERE (</span>
+<span class="sd">        program ILIKE &#39;%Johns Hopkins%&#39;</span>
+<span class="sd">        OR program ~* &#39;\mJHU\M&#39;</span>
+<span class="sd">    )</span>
+<span class="sd">      AND program ILIKE &#39;%Computer Science%&#39;</span>
+<span class="sd">      AND degree ILIKE &#39;master%&#39;;</span>
+<span class="sd">    &quot;&quot;&quot;</span><span class="p">,</span>
+
+    <span class="c1"># Question 8: Fall 2026 CS PhD acceptances at the four universities (original fields).</span>
+    <span class="c1"># Whole-word MIT matching avoids accidentally matching RMIT.</span>
+<span class="w">    </span><span class="sa">r</span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">    SELECT COUNT(*) AS original_field_count</span>
+<span class="sd">    FROM applicants</span>
+<span class="sd">    WHERE term ILIKE &#39;Fall 2026&#39;</span>
+<span class="sd">      AND status ILIKE &#39;Accepted&#39;</span>
+<span class="sd">      AND degree ILIKE &#39;PhD&#39;</span>
+<span class="sd">      AND program ILIKE &#39;%Computer Science%&#39;</span>
+<span class="sd">      AND (</span>
+<span class="sd">          program ILIKE &#39;%Georgetown%&#39;</span>
+<span class="sd">          OR program ILIKE &#39;%Massachusetts Institute of Technology%&#39;</span>
+<span class="sd">          OR program ~* &#39;\mMIT\M&#39;</span>
+<span class="sd">          OR program ILIKE &#39;%Stanford%&#39;</span>
+<span class="sd">          OR program ILIKE &#39;%Carnegie Mellon%&#39;</span>
+<span class="sd">      );</span>
+<span class="sd">    &quot;&quot;&quot;</span><span class="p">,</span>
+
+    <span class="c1"># Question 9: Compare the original and LLM-field counts; subtract original from LLM.</span>
+<span class="w">    </span><span class="sa">r</span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">    WITH eligible AS (</span>
+<span class="sd">        SELECT program, llm_generated_program, llm_generated_university</span>
+<span class="sd">        FROM applicants</span>
+<span class="sd">        WHERE term ILIKE &#39;Fall 2026&#39;</span>
+<span class="sd">          AND status ILIKE &#39;Accepted&#39;</span>
+<span class="sd">          AND degree ILIKE &#39;PhD&#39;</span>
+<span class="sd">    ), counts AS (</span>
+<span class="sd">        SELECT</span>
+<span class="sd">            COUNT(*) FILTER (</span>
+<span class="sd">                WHERE program ILIKE &#39;%Computer Science%&#39;</span>
+<span class="sd">                  AND (</span>
+<span class="sd">                      program ILIKE &#39;%Georgetown%&#39;</span>
+<span class="sd">                      OR program ILIKE &#39;%Massachusetts Institute of Technology%&#39;</span>
+<span class="sd">                      OR program ~* &#39;\mMIT\M&#39;</span>
+<span class="sd">                      OR program ILIKE &#39;%Stanford%&#39;</span>
+<span class="sd">                      OR program ILIKE &#39;%Carnegie Mellon%&#39;</span>
+<span class="sd">                  )</span>
+<span class="sd">            ) AS original_field_count,</span>
+<span class="sd">            COUNT(*) FILTER (</span>
+<span class="sd">                WHERE llm_generated_program ILIKE &#39;%Computer Science%&#39;</span>
+<span class="sd">                  AND (</span>
+<span class="sd">                      llm_generated_university ILIKE &#39;%Georgetown%&#39;</span>
+<span class="sd">                      OR llm_generated_university ILIKE &#39;%Massachusetts Institute of Technology%&#39;</span>
+<span class="sd">                      OR llm_generated_university ~* &#39;\mMIT\M&#39;</span>
+<span class="sd">                      OR llm_generated_university ILIKE &#39;%Stanford%&#39;</span>
+<span class="sd">                      OR llm_generated_university ILIKE &#39;%Carnegie Mellon%&#39;</span>
+<span class="sd">                  )</span>
+<span class="sd">            ) AS llm_field_count</span>
+<span class="sd">        FROM eligible</span>
+<span class="sd">    )</span>
+<span class="sd">    SELECT original_field_count, llm_field_count,</span>
+<span class="sd">           llm_field_count - original_field_count AS difference</span>
+<span class="sd">    FROM counts;</span>
+<span class="sd">    &quot;&quot;&quot;</span><span class="p">,</span>
+
+    <span class="c1"># Question 10 (my first question): Lowest accepted PhD GPA at each university.</span>
+<span class="w">    </span><span class="sa">r</span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">    WITH admitted AS (</span>
+<span class="sd">        SELECT</span>
+<span class="sd">            CASE</span>
+<span class="sd">                WHEN llm_generated_university ILIKE &#39;%Georgetown%&#39;</span>
+<span class="sd">                    THEN &#39;Georgetown University&#39;</span>
+<span class="sd">                WHEN llm_generated_university ILIKE &#39;%Massachusetts Institute of Technology%&#39;</span>
+<span class="sd">                  OR llm_generated_university ILIKE &#39;MIT&#39;</span>
+<span class="sd">                    THEN &#39;Massachusetts Institute of Technology&#39;</span>
+<span class="sd">                WHEN llm_generated_university ILIKE &#39;%Stanford%&#39;</span>
+<span class="sd">                    THEN &#39;Stanford University&#39;</span>
+<span class="sd">                WHEN llm_generated_university ILIKE &#39;%Carnegie Mellon%&#39;</span>
+<span class="sd">                    THEN &#39;Carnegie Mellon University&#39;</span>
+<span class="sd">            END AS university,</span>
+<span class="sd">            gpa</span>
+<span class="sd">        FROM applicants</span>
+<span class="sd">        WHERE status ILIKE &#39;Accepted&#39;</span>
+<span class="sd">          AND term ILIKE &#39;Fall 2026&#39;</span>
+<span class="sd">          AND degree ILIKE &#39;PhD&#39;</span>
+<span class="sd">          AND gpa IS NOT NULL</span>
+<span class="sd">    )</span>
+<span class="sd">    SELECT university, MIN(gpa) AS lowest_accepted_gpa</span>
+<span class="sd">    FROM admitted</span>
+<span class="sd">    WHERE university IS NOT NULL</span>
+<span class="sd">    GROUP BY university</span>
+<span class="sd">    ORDER BY university;</span>
+<span class="sd">    &quot;&quot;&quot;</span><span class="p">,</span>
+
+    <span class="c1"># Question 11 (my second question): Lowest GPA by university and nationality.</span>
+<span class="w">    </span><span class="sa">r</span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">    WITH admitted AS (</span>
+<span class="sd">        SELECT</span>
+<span class="sd">            CASE</span>
+<span class="sd">                WHEN llm_generated_university ILIKE &#39;%Georgetown%&#39;</span>
+<span class="sd">                    THEN &#39;Georgetown University&#39;</span>
+<span class="sd">                WHEN llm_generated_university ILIKE &#39;%Massachusetts Institute of Technology%&#39;</span>
+<span class="sd">                  OR llm_generated_university ILIKE &#39;MIT&#39;</span>
+<span class="sd">                    THEN &#39;Massachusetts Institute of Technology&#39;</span>
+<span class="sd">                WHEN llm_generated_university ILIKE &#39;%Stanford%&#39;</span>
+<span class="sd">                    THEN &#39;Stanford University&#39;</span>
+<span class="sd">                WHEN llm_generated_university ILIKE &#39;%Carnegie Mellon%&#39;</span>
+<span class="sd">                    THEN &#39;Carnegie Mellon University&#39;</span>
+<span class="sd">            END AS university,</span>
+<span class="sd">            us_or_international, gpa</span>
+<span class="sd">        FROM applicants</span>
+<span class="sd">        WHERE status ILIKE &#39;Accepted&#39;</span>
+<span class="sd">          AND term ILIKE &#39;Fall 2026&#39;</span>
+<span class="sd">          AND degree ILIKE &#39;PhD&#39;</span>
+<span class="sd">          AND gpa IS NOT NULL</span>
+<span class="sd">          AND (us_or_international ILIKE &#39;American&#39;</span>
+<span class="sd">               OR us_or_international ILIKE &#39;International&#39;)</span>
+<span class="sd">    )</span>
+<span class="sd">    SELECT university,</span>
+<span class="sd">        MIN(gpa) FILTER (WHERE us_or_international ILIKE &#39;American&#39;)</span>
+<span class="sd">            AS lowest_american_gpa,</span>
+<span class="sd">        MIN(gpa) FILTER (WHERE us_or_international ILIKE &#39;International&#39;)</span>
+<span class="sd">            AS lowest_international_gpa</span>
+<span class="sd">    FROM admitted</span>
+<span class="sd">    WHERE university IS NOT NULL</span>
+<span class="sd">    GROUP BY university</span>
+<span class="sd">    ORDER BY university;</span>
+<span class="sd">    &quot;&quot;&quot;</span><span class="p">,</span>
+
+<span class="p">]</span>
+
+
+<div class="viewcode-block" id="format_value">
+<a class="viewcode-back" href="../api.html#query_data.format_value">[docs]</a>
+<span class="k">def</span><span class="w"> </span><span class="nf">format_value</span><span class="p">(</span><span class="n">value</span><span class="p">,</span> <span class="n">column</span><span class="p">):</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;Display missing values, whole-number counts and two-decimal scores.&quot;&quot;&quot;</span>
+    <span class="k">if</span> <span class="n">value</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+        <span class="k">return</span> <span class="s2">&quot;N/A&quot;</span>
+    <span class="k">if</span> <span class="n">column</span> <span class="o">==</span> <span class="s2">&quot;difference&quot;</span><span class="p">:</span>
+        <span class="k">return</span> <span class="sa">f</span><span class="s2">&quot;</span><span class="si">{</span><span class="n">value</span><span class="si">:</span><span class="s2">+d</span><span class="si">}</span><span class="s2">&quot;</span>
+    <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">value</span><span class="p">,</span> <span class="nb">int</span><span class="p">):</span>
+        <span class="k">return</span> <span class="sa">f</span><span class="s2">&quot;</span><span class="si">{</span><span class="n">value</span><span class="si">:</span><span class="s2">,</span><span class="si">}</span><span class="s2">&quot;</span>
+    <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">value</span><span class="p">,</span> <span class="p">(</span><span class="nb">float</span><span class="p">,</span> <span class="n">Decimal</span><span class="p">)):</span>
+        <span class="k">return</span> <span class="sa">f</span><span class="s2">&quot;</span><span class="si">{</span><span class="n">value</span><span class="si">:</span><span class="s2">.2f</span><span class="si">}</span><span class="s2">&quot;</span>
+    <span class="k">return</span> <span class="nb">str</span><span class="p">(</span><span class="n">value</span><span class="p">)</span></div>
+
+
+
+<div class="viewcode-block" id="print_result">
+<a class="viewcode-back" href="../api.html#query_data.print_result">[docs]</a>
+<span class="k">def</span><span class="w"> </span><span class="nf">print_result</span><span class="p">(</span><span class="n">number</span><span class="p">,</span> <span class="n">cursor</span><span class="p">):</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;Print one line per question; separate multiple result rows with semicolons.&quot;&quot;&quot;</span>
+    <span class="n">columns</span> <span class="o">=</span> <span class="p">[</span><span class="n">column</span><span class="o">.</span><span class="n">name</span> <span class="k">for</span> <span class="n">column</span> <span class="ow">in</span> <span class="n">cursor</span><span class="o">.</span><span class="n">description</span><span class="p">]</span>
+    <span class="n">results</span> <span class="o">=</span> <span class="p">[]</span>
+    <span class="k">for</span> <span class="n">row</span> <span class="ow">in</span> <span class="n">cursor</span><span class="o">.</span><span class="n">fetchall</span><span class="p">():</span>
+        <span class="n">values</span> <span class="o">=</span> <span class="p">[</span><span class="n">format_value</span><span class="p">(</span><span class="n">value</span><span class="p">,</span> <span class="n">column</span><span class="p">)</span> <span class="k">for</span> <span class="n">column</span><span class="p">,</span> <span class="n">value</span> <span class="ow">in</span> <span class="nb">zip</span><span class="p">(</span><span class="n">columns</span><span class="p">,</span> <span class="n">row</span><span class="p">)]</span>
+        <span class="n">results</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="s2">&quot; | &quot;</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="n">values</span><span class="p">))</span>
+    <span class="n">answer</span> <span class="o">=</span> <span class="s2">&quot;; &quot;</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="n">results</span><span class="p">)</span> <span class="k">if</span> <span class="n">results</span> <span class="k">else</span> <span class="s2">&quot;N/A&quot;</span>
+    <span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Q</span><span class="si">{</span><span class="n">number</span><span class="si">}</span><span class="s2">: </span><span class="si">{</span><span class="n">answer</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span></div>
+
+
+
+<span class="k">def</span><span class="w"> </span><span class="nf">main</span><span class="p">():</span>
+    <span class="k">try</span><span class="p">:</span>
+        <span class="k">with</span> <span class="n">psycopg</span><span class="o">.</span><span class="n">connect</span><span class="p">(</span><span class="n">connect_timeout</span><span class="o">=</span><span class="mi">10</span><span class="p">)</span> <span class="k">as</span> <span class="n">connection</span><span class="p">:</span>
+            <span class="k">with</span> <span class="n">connection</span><span class="o">.</span><span class="n">cursor</span><span class="p">()</span> <span class="k">as</span> <span class="n">cursor</span><span class="p">:</span>
+                <span class="c1"># Keep every answer on the same snapshot and prevent database changes.</span>
+                <span class="n">cursor</span><span class="o">.</span><span class="n">execute</span><span class="p">(</span>
+                    <span class="s2">&quot;SET TRANSACTION ISOLATION LEVEL REPEATABLE READ, READ ONLY&quot;</span>
+                <span class="p">)</span>
+                <span class="k">for</span> <span class="n">number</span><span class="p">,</span> <span class="n">sql</span> <span class="ow">in</span> <span class="nb">enumerate</span><span class="p">(</span><span class="n">QUERIES</span><span class="p">,</span> <span class="n">start</span><span class="o">=</span><span class="mi">1</span><span class="p">):</span>
+                    <span class="n">cursor</span><span class="o">.</span><span class="n">execute</span><span class="p">(</span><span class="n">sql</span><span class="p">)</span>
+                    <span class="n">print_result</span><span class="p">(</span><span class="n">number</span><span class="p">,</span> <span class="n">cursor</span><span class="p">)</span>
+    <span class="k">except</span> <span class="n">psycopg</span><span class="o">.</span><span class="n">Error</span> <span class="k">as</span> <span class="n">error</span><span class="p">:</span>
+        <span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Query analysis failed: </span><span class="si">{</span><span class="n">error</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">,</span> <span class="n">file</span><span class="o">=</span><span class="n">sys</span><span class="o">.</span><span class="n">stderr</span><span class="p">)</span>
+        <span class="k">return</span> <span class="mi">1</span>
+    <span class="k">return</span> <span class="mi">0</span>
+
+
+<span class="k">if</span> <span class="vm">__name__</span> <span class="o">==</span> <span class="s2">&quot;__main__&quot;</span><span class="p">:</span>
+    <span class="k">raise</span> <span class="ne">SystemExit</span><span class="p">(</span><span class="n">main</span><span class="p">())</span>
+</pre></div>
+
+           </div>
+          </div>
+          <footer>
+
+  <hr/>
+
+  <div role="contentinfo">
+    <p>&#169; Copyright .</p>
+  </div>
+
+  Built with <a href="https://www.sphinx-doc.org/">Sphinx</a> using a
+    <a href="https://github.com/readthedocs/sphinx_rtd_theme">theme</a>
+    provided by <a href="https://readthedocs.org">Read the Docs</a>.
+   
+
+</footer>
+        </div>
+      </div>
+    </section>
+  </div>
+  <script>
+      jQuery(function () {
+          SphinxRtdTheme.Navigation.enable(true);
+      });
+  </script> 
+
+</body>
+</html>

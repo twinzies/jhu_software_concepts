@@ -1,7 +1,7 @@
-"""Run the eleven Module 3 SQL queries and print their results.
+"""Answer the eleven analysis questions in raw SQL and print them.
 
-Run from module_3: python query_data.py
-Set PGDATABASE, PGUSER, PGHOST and PGPORT in your terminal before running.
+Run from src/: python query_data.py. Connection settings come from DATABASE_URL
+or the PG* environment variables.
 """
 
 from decimal import Decimal
