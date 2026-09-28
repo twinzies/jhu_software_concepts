@@ -8,6 +8,7 @@ import psycopg
 import pytest
 
 import clean
+from conftest import FakeDriver
 import load_data
 import orm_queries
 import pull_data
@@ -164,17 +165,6 @@ def test_orm_queries_reports_db_failure(monkeypatch, capsys):
 
 
 # --- pull_data.py --- #
-
-class FakeDriver:
-    """A webdriver stand-in recording the pages it was asked to load."""
-
-    def __init__(self):
-        self.quit_calls = 0
-        self.current_url = "https://example.test/survey"
-
-    def quit(self):
-        self.quit_calls += 1
-
 
 def test_scrape_newest_walks_requested_pages(monkeypatch, scraped_records):
     """Paging stops after the requested number of pages."""

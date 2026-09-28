@@ -114,6 +114,25 @@ def scraped_records():
     ]
 
 
+class FakeDriver:
+    """A webdriver stand-in: records the pages requested and can refuse to quit."""
+
+    def __init__(self, page_source="<html></html>"):
+        self.page_source = page_source
+        self.current_url = "https://example.test/survey"
+        self.loaded = []
+        self.quit_calls = 0
+        self.quit_error = None
+
+    def get(self, url):
+        self.loaded.append(url)
+
+    def quit(self):
+        self.quit_calls += 1
+        if self.quit_error is not None:
+            raise self.quit_error
+
+
 class FakeConnection:
     """Context manager standing in for psycopg.connect, so no database is opened."""
 
