@@ -7,6 +7,7 @@ from urllib.parse import urlsplit, urlunsplit
 import load_data
 import models
 import psycopg
+from psycopg import sql
 import pull_data
 import pytest
 import scrape
@@ -211,13 +212,16 @@ def _test_database_url():
 def db_url():
     """Create the test database if needed, or skip when PostgreSQL is unreachable."""
     url = _test_database_url()
+    # The name comes from the URL, so TEST_DATABASE_URL may name any database.
+    name = urlsplit(url).path.lstrip("/")
     admin = urlunsplit(urlsplit(url)._replace(path="/postgres"))
     try:
         with psycopg.connect(admin, connect_timeout=5, autocommit=True) as connection:
             exists = connection.execute(
-                "SELECT 1 FROM pg_database WHERE datname = %s", [TEST_DB_NAME]).fetchone()
+                "SELECT 1 FROM pg_database WHERE datname = %s", [name]).fetchone()
             if not exists:
-                connection.execute(f'CREATE DATABASE "{TEST_DB_NAME}"')
+                connection.execute(
+                    sql.SQL("CREATE DATABASE {}").format(sql.Identifier(name)))
     except psycopg.Error as error:
         pytest.skip(f"PostgreSQL unavailable: {error}")
     return url
