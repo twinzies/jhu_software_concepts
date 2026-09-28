@@ -66,7 +66,7 @@ python -m pytest -m "web or buttons or analysis or db or integration"   # same, 
 
 ## Documentation
 
-Published Sphinx docs: **https://jhu-software-concepts.readthedocs.io/** — overview and
+Published Sphinx docs: **https://jhu-software-concepts2.readthedocs.io/en/latest/api.html** — overview and
 setup, architecture, API reference, and the testing guide.
 
 Build them locally into `docs/_build/html`:
