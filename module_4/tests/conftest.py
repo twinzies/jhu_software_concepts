@@ -223,10 +223,16 @@ def db_session(db_url):
     models.configure(models.database_url())
 
 
-def _real_pull_runner(pull_pipeline, db_url):
-    """A runner that pulls fake scraped records through the real loader into the test database."""
+@pytest.fixture
+def connect_to_test_db(db_url):
+    """Connect to the test database, capturing connect before pull_pipeline replaces it."""
     connect = psycopg.connect
-    pull_pipeline(connect=lambda **kwargs: connect(db_url), loader=load_data.load_records)
+    return lambda *args, **kwargs: connect(db_url)
+
+
+def _real_pull_runner(pull_pipeline, connect_to_test_db):
+    """A runner that pulls fake scraped records through the real loader into the test database."""
+    pull_pipeline(connect=connect_to_test_db, loader=load_data.load_records)
 
     def runner():
         pull_data.main()
@@ -235,22 +241,22 @@ def _real_pull_runner(pull_pipeline, db_url):
 
 
 @pytest.fixture
-def loading_app(tmp_path, analysis_source, pull_pipeline, db_url, db_connection):
+def loading_app(tmp_path, analysis_source, pull_pipeline, connect_to_test_db, db_connection):
     """An app whose Pull Data button runs the real loader against the test database."""
     return create_app(
         {"TESTING": True, "PULL_STATUS_PATH": str(tmp_path / "pull_status.json")},
         analysis_source=analysis_source,
-        pull_runner=_real_pull_runner(pull_pipeline, db_url),
+        pull_runner=_real_pull_runner(pull_pipeline, connect_to_test_db),
     )
 
 
 @pytest.fixture
-def end_to_end_app(tmp_path, pull_pipeline, db_url, db_connection):
+def end_to_end_app(tmp_path, pull_pipeline, connect_to_test_db, db_url, db_connection):
     app = create_app(
         {"TESTING": True,
          "DATABASE_URL": _with_scheme(db_url, "postgresql+psycopg"),
          "PULL_STATUS_PATH": str(tmp_path / "pull_status.json")},
-        pull_runner=_real_pull_runner(pull_pipeline, db_url),
+        pull_runner=_real_pull_runner(pull_pipeline, connect_to_test_db),
     )
     yield app
     models.configure(models.database_url())

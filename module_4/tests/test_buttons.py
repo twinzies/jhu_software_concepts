@@ -1,10 +1,12 @@
 """Task 2: Pull Data and Update Analysis endpoints, and busy-state gating."""
 
+import subprocess
+
 import pytest
 from conftest import FakeProcess
 
 import pull_data
-from app import create_app
+from app import create_app, spawn_pull
 
 # Add marker to every test in this module.
 pytestmark = pytest.mark.buttons
@@ -111,3 +113,41 @@ def test_failed_pull_writes_no_rows(pull_pipeline):
     assert pull_data.main() == 1
     assert recorder.loaded == []
     assert recorder.status()["state"] == "failed"
+
+
+# --- Coverage: the browser paths and the real runner --- #
+
+def test_spawn_pull_launches_the_pull_script(monkeypatch):
+    """The production runner starts pull_data.py in its own process."""
+    started = {}
+    monkeypatch.setattr(subprocess, "Popen",
+                        lambda command, cwd: started.setdefault("command", command))
+
+    spawn_pull()
+
+    assert started["command"][1].endswith("pull_data.py")
+
+
+@pytest.mark.parametrize(
+    ("path", "notice"),
+    [("/pull-data", "started"), ("/update-analysis", "updated")],
+)
+def test_browser_posts_redirect_back_to_the_page(client, path, notice):
+    """A form post prefers HTML, so it is answered with a redirect, not JSON."""
+    response = client.post(path, headers=HTML)
+
+    assert response.status_code == 302
+    assert response.headers["Location"] == f"/analysis?notice={notice}"
+
+
+@pytest.mark.parametrize(
+    ("path", "notice"),
+    [("/pull-data", "already-running"), ("/update-analysis", "updated-busy")],
+)
+def test_browser_posts_are_redirected_when_busy(client, busy, path, notice):
+    """While a pull runs the browser is redirected with an explanatory notice."""
+    busy()
+    response = client.post(path, headers=HTML)
+
+    assert response.status_code == 302
+    assert response.headers["Location"] == f"/analysis?notice={notice}"

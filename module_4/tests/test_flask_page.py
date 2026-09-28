@@ -1,9 +1,11 @@
 """Task 1: Flask app factory, routes, and rendering of the analysis page."""
 
 import pytest
-from app import create_app
+from app import PullState, create_app, last_pull
+from conftest import FakeProcess
 from flask import Flask
 from flask.testing import FlaskClient
+from sqlalchemy.exc import SQLAlchemyError
 
 pytestmark = pytest.mark.web
 
@@ -123,3 +125,36 @@ def test_page_includes_at_least_one_answer_label(page):
     labels = [element.get_text(strip=True) for element in page.select(".answer-label")]
     assert labels, "the page renders no Answer: label"
     assert all(label == "Answer:" for label in labels)
+
+
+# --- Coverage: pull status and the database-error banner --- #
+
+def test_last_pull_reports_a_pull_that_died_before_writing(tmp_path):
+    """With no status file, a non-zero exit is still reported as a failure."""
+    state = PullState(lambda: FakeProcess(returncode=1))
+    state.start()
+
+    assert last_pull(tmp_path / "missing.json", state)["state"] == "failed"
+
+
+def test_last_pull_ignores_an_unreadable_status_file(tmp_path, app):
+    """Half-written JSON is treated as no status at all."""
+    status = tmp_path / "pull_status.json"
+    status.write_text("{not json", encoding="utf-8")
+
+    assert last_pull(status, app.extensions["pull_state"]) is None
+
+
+def test_page_shows_a_banner_when_the_database_fails(tmp_path):
+    """A database error is reported on the page instead of raising."""
+    def broken():
+        raise SQLAlchemyError("connection refused")
+
+    application = create_app(
+        {"TESTING": True, "PULL_STATUS_PATH": str(tmp_path / "pull_status.json")},
+        analysis_source=broken,
+    )
+    response = application.test_client().get("/analysis")
+
+    assert response.status_code == 200
+    assert "Could not read the database" in response.get_data(as_text=True)
