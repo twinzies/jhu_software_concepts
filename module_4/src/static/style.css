@@ -100,6 +100,8 @@ body {
 
 .question { margin: 0 0 0.6rem; }
 .answer { font-size: 1.9rem; color: var(--plum); margin: 0; }
+.answer-label { font-size: 0.85rem; color: var(--muted); letter-spacing: 0.04em;
+                vertical-align: middle; margin-right: 0.35rem; }
 .label { font-size: 0.85rem; color: var(--muted); margin: 0; }
 
 table { border-collapse: collapse; width: 100%; }

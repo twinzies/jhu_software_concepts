@@ -1,5 +1,6 @@
 """Part 5A"""
 
+import os
 from datetime import date
 
 from sqlalchemy import Date, Float, Identity, Integer, Text, create_engine
@@ -34,8 +35,31 @@ class Applicant(Base):
     llm_generated_university: Mapped[str | None] = mapped_column(Text)
 
 
-# The psycopg driver reads the PG* environment variables.
-engine = create_engine("postgresql+psycopg://", connect_args={"connect_timeout": 10})
+# With no DATABASE_URL the psycopg driver reads the PG* environment variables.
+DEFAULT_DATABASE_URL = "postgresql+psycopg://"
+
+
+def database_url():
+    """Return the connection URL, preferring DATABASE_URL over the PG* variables."""
+    return os.environ.get("DATABASE_URL") or DEFAULT_DATABASE_URL
+
+
+def make_engine(url=None):
+    """Build an engine for the URL, timing out only on PostgreSQL connections."""
+    url = url or database_url()
+    connect_args = {"connect_timeout": 10} if url.startswith("postgresql") else {}
+    return create_engine(url, connect_args=connect_args)
+
+
+engine = make_engine()
 
 Session = sessionmaker(bind=engine)
+
+
+def configure(url):
+    """Point the shared Session at another database, so tests can override it."""
+    global engine
+    engine = make_engine(url)
+    Session.configure(bind=engine)
+    return engine
 

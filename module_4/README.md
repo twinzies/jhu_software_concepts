@@ -54,3 +54,12 @@ and the two should match exactly:
 ```bash
 diff <(python query_data.py) <(python orm_queries.py)
 ```
+
+## Testing
+
+Run from this folder so pytest finds `pytest.ini`. No database or network is needed.
+
+```bash
+python -m pytest                                                    # whole suite, with coverage
+python -m pytest -m "web or buttons or analysis or db or integration"   # same, by marker
+```

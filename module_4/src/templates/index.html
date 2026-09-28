@@ -12,10 +12,11 @@
 <header class="navbar">
   <h1>Grad Cafe Analysis</h1>
   <form method="post" action="{{ url_for('pull_data') }}">
-    <button type="submit" {% if pulling %}disabled{% endif %}>Pull Data</button>
+    <button type="submit" data-testid="pull-data-btn"
+            {% if pulling %}disabled{% endif %}>Pull Data</button>
   </form>
   <form method="post" action="{{ url_for('update_analysis') }}">
-    <button type="submit" class="active">Update Analysis</button>
+    <button type="submit" class="active" data-testid="update-analysis-btn">Update Analysis</button>
   </form>
 </header>
 
@@ -52,11 +53,14 @@
       <h2>Question {{ block.number }}</h2>
       <p class="question">{{ block.question }}</p>
       {% if not block.rows %}
-        <p class="answer">N/A</p>
+        <p class="answer" data-testid="answer"><span class="answer-label">Answer:</span> N/A</p>
       {% elif block.single %}
-        <p class="answer">{{ block.rows[0][0] }}</p>
+        <p class="answer" data-testid="answer">
+          <span class="answer-label">Answer:</span> {{ block.rows[0][0] }}
+        </p>
         <p class="label">{{ block.headings[0] }}</p>
       {% else %}
+        <p class="answer" data-testid="answer"><span class="answer-label">Answer:</span></p>
         <table>
           <thead>
             <tr>{% for name in block.headings %}<th>{{ name }}</th>{% endfor %}</tr>
