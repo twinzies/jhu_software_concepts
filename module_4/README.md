@@ -3,6 +3,9 @@
 The project in src/ is the flask app built in module_3 which loads the cleaned Module 2 applicant data into PostgreSQL, answers the eleven analysis
 questions in both raw SQL and SQLAlchemy, and serves the results as a Flask page with Pull Data and Update Analysis buttons. This module_4 expands on that work with a test suite using pytest and documentation with sphinx.
 
+**Github SSH URL for this repo:** `git@github.com:twinzies/jhu_software_concepts.git`
+
+
 ## Setup
 
 Use the same Python environment for installing and running. The local setup uses Conda base,
