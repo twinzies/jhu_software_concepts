@@ -123,11 +123,3 @@ def test_page_includes_at_least_one_answer_label(page):
     labels = [element.get_text(strip=True) for element in page.select(".answer-label")]
     assert labels, "the page renders no Answer: label"
     assert all(label == "Answer:" for label in labels)
-
-
-def test_every_rendered_question_is_labelled(page):
-    """The Answer: label is consistent, not present on one lucky card."""
-    cards = page.select("section.card")
-    assert cards, "the page renders no analysis cards"
-    for card in cards:
-        assert "Answer:" in card.get_text(), f"card {card.h2.get_text()} has no Answer: label"

@@ -1,13 +1,16 @@
 """Shared fixtures that keep the suite off the network and off PostgreSQL."""
 
+import getpass
 import json
-
+import os
+from urllib.parse import urlsplit, urlunsplit
 import load_data
+import models
+import psycopg
 import pull_data
 import pytest
 import scrape
 from bs4 import BeautifulSoup
-
 from app import build_blocks, create_app
 
 FAKE_TOTAL = 1234
@@ -140,18 +143,100 @@ class PullRecorder:
 @pytest.fixture
 def pull_pipeline(monkeypatch, tmp_path, scraped_records):
     """Wire pull_data.main() to fake scrape/database stages and record the loader's rows."""
-    def wire(scraper=None):
+    def wire(scraper=None, connect=None, loader=None):
+        """loader defaults to a counting stub; pass load_data.load_records to really write."""
         recorder = PullRecorder(tmp_path / "pull_status.json")
+        write = loader or (lambda connection, rows: (len(rows), 0))
 
         def load_records(connection, rows):
             recorder.loaded.append(rows)
-            return len(rows), 0
+            return write(connection, rows)
 
         monkeypatch.setattr(pull_data, "scrape_newest",
                             scraper or (lambda pages: scraped_records))
         monkeypatch.setattr(pull_data, "STATUS_PATH", recorder.status_path)
         monkeypatch.setattr(scrape, "OUTPUT_PATH", tmp_path / "scraped_data.jsonl")
-        monkeypatch.setattr(pull_data.psycopg, "connect", lambda **kwargs: FakeConnection())
+        monkeypatch.setattr(pull_data.psycopg, "connect",
+                            connect or (lambda **kwargs: FakeConnection()))
         monkeypatch.setattr(load_data, "load_records", load_records)
         return recorder
     return wire
+
+
+TEST_DB_NAME = "module_4_test"
+
+# Required in the Module 3 schema: every scraped submission carries these.
+REQUIRED_COLUMNS = ("program", "date_added", "url", "status", "term",
+                    "us_or_international", "degree")
+
+
+def _with_scheme(url, scheme):
+    return urlunsplit(urlsplit(url)._replace(scheme=scheme))
+
+
+def _test_database_url():
+    """A dedicated test database, derived from the environment but never the app's own."""
+    if os.environ.get("TEST_DATABASE_URL"):
+        return _with_scheme(os.environ["TEST_DATABASE_URL"], "postgresql")
+    configured = os.environ.get("DATABASE_URL")
+    if configured:
+        return _with_scheme(
+            urlunsplit(urlsplit(configured)._replace(path=f"/{TEST_DB_NAME}")), "postgresql")
+    user = os.environ.get("PGUSER") or getpass.getuser()
+    host = os.environ.get("PGHOST", "localhost")
+    port = os.environ.get("PGPORT", "5432")
+    return f"postgresql://{user}@{host}:{port}/{TEST_DB_NAME}"
+
+
+@pytest.fixture(scope="session")
+def db_url():
+    """Create the test database if needed, or skip when PostgreSQL is unreachable."""
+    url = _test_database_url()
+    admin = urlunsplit(urlsplit(url)._replace(path="/postgres"))
+    try:
+        with psycopg.connect(admin, connect_timeout=5, autocommit=True) as connection:
+            exists = connection.execute(
+                "SELECT 1 FROM pg_database WHERE datname = %s", [TEST_DB_NAME]).fetchone()
+            if not exists:
+                connection.execute(f'CREATE DATABASE "{TEST_DB_NAME}"')
+    except psycopg.Error as error:
+        pytest.skip(f"PostgreSQL unavailable: {error}")
+    return url
+
+
+@pytest.fixture
+def db_connection(db_url):
+    """An empty applicants table on the test database, for one test."""
+    with psycopg.connect(db_url) as connection:
+        connection.execute(load_data.CREATE_TABLE)
+        connection.execute("TRUNCATE applicants RESTART IDENTITY")
+        connection.commit()
+        yield connection
+
+
+@pytest.fixture
+def db_session(db_url):
+    """A SQLAlchemy session on the test database, restoring the app's binding after."""
+    models.configure(_with_scheme(db_url, "postgresql+psycopg"))
+    with models.Session() as session:
+        yield session
+    models.configure(models.database_url())
+
+
+@pytest.fixture
+def loading_app(tmp_path, analysis_source, pull_pipeline, db_url, db_connection):
+    """An app whose Pull Data button runs the real loader against the test database."""
+    # Captured before pull_pipeline patches the shared psycopg.connect attribute.
+    connect = psycopg.connect
+    pull_pipeline(connect=lambda **kwargs: connect(db_url),
+                  loader=load_data.load_records)
+
+    def runner():
+        pull_data.main()
+        return FakeProcess(returncode=0)
+
+    return create_app(
+        {"TESTING": True, "PULL_STATUS_PATH": str(tmp_path / "pull_status.json")},
+        analysis_source=analysis_source,
+        pull_runner=runner,
+    )
