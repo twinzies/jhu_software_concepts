@@ -46,7 +46,10 @@ cp .env.example .env
 set -a; source .env; set +a
 ```
 
-As the database owner, create the database and table, then the app's least-privilege login, `gradcafe_app`. It is not a superuser and has only `SELECT` and `INSERT` on `applicants`: no `UPDATE`, `DELETE`, `DROP`, `ALTER` or `CREATE`.
+As the database owner, create the database and run the two setup scripts in `db/` once:
+
+- `db/schema.sql` creates the `applicants` table. The app's own login can't create tables, so this is a separate owner step; the tests build their table from the same file.
+- `db/least_privilege.sql` creates the app's login, `gradcafe_app`, with the password from `.env`. It is not a superuser and has only `SELECT` and `INSERT` on `applicants`: no `UPDATE`, `DELETE`, `DROP`, `ALTER` or `CREATE`.
 
 ```bash
 createdb module_4
