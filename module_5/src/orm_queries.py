@@ -1,4 +1,7 @@
-"""The eleven analysis questions as SQLAlchemy queries, shared with the Flask page."""
+"""The eleven analysis questions as SQLAlchemy queries, to cross-check query_data.py.
+
+SQLAlchemy binds every value as a parameter; run_queries adds a clamped LIMIT.
+"""
 
 # Part 6
 
@@ -13,6 +16,7 @@ from sqlalchemy.exc import SQLAlchemyError
 
 from models import Applicant, Session
 from query_data import format_value
+from sql_safety import DEFAULT_LIMIT, clamp_limit
 
 # Questions 8 and 9 share the same term, admission status and degree filters.
 accepted_phd = and_(
@@ -182,29 +186,13 @@ QUERIES = [
         .order_by(university)),
 ]
 
-QUESTIONS = {
-    1: "How many entries are from applicants who applied for Fall 2026?",
-    2: "Among entries that provide a nationality, what percentage are international students?",
-    3: "What are the average GPA, GRE Quantitative, GRE Verbal and GRE Analytical Writing scores?",
-    4: "What is the average GPA of American applicants who applied for Fall 2026?",
-    5: "What percentage of Fall 2025 entries are acceptances?",
-    6: "What is the average GPA of accepted applicants who applied for Fall 2026?",
-    7: "How many entries are Johns Hopkins master's applications in Computer Science?",
-    8: "How many Fall 2026 entries are PhD Computer Science acceptances at Georgetown, "
-       "MIT, Stanford or Carnegie Mellon?",
-    9: "Question 8 again, using the LLM-generated program and university fields instead.",
-    10: "What was the lowest GPA accepted to a doctoral program at those four "
-        "universities for Fall 2026?",
-    11: "At those same universities, what was the lowest accepted GPA for American "
-        "and for international applicants?",
-}
 
-
-def run_queries(session):
-    """Return each question's result rows for console output or Flask."""
+def run_queries(session, limit=DEFAULT_LIMIT):
+    """Return each question's result rows, with at most the clamped limit per question."""
+    limit = clamp_limit(limit)
     results = {}
     for number, statement in QUERIES:
-        results[number] = session.execute(statement).mappings().all()
+        results[number] = session.execute(statement.limit(limit)).mappings().all()
     return results
 
 

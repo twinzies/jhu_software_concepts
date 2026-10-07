@@ -151,7 +151,7 @@ def test_orm_queries_prints_every_question(db_session, monkeypatch, capsys):
     assert orm_queries.main() == 0
 
     printed = capsys.readouterr().out
-    assert all(f"Q{number}:" in printed for number in orm_queries.QUESTIONS)
+    assert all(f"Q{number}:" in printed for number in query_data.QUESTIONS)
 
 
 def test_orm_queries_reports_db_failure(monkeypatch, capsys):

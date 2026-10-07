@@ -45,11 +45,11 @@ def fake_results():
 
 @pytest.fixture
 def analysis_source(fake_results):
-    """A drop-in for database_analysis that never opens a session and counts its calls."""
-    def source():
-        source.calls += 1
+    """A drop-in for database_analysis that never opens a connection and records each limit."""
+    def source(limit):
+        source.limits.append(limit)
         return build_blocks(fake_results), FAKE_TOTAL
-    source.calls = 0
+    source.limits = []
     return source
 
 
@@ -275,11 +275,11 @@ def loading_app(tmp_path, analysis_source, pull_pipeline, connect_to_test_db, db
 
 @pytest.fixture
 def end_to_end_app(tmp_path, pull_pipeline, connect_to_test_db, db_url, db_connection):
+    """An app that reads the test database through query_data and pulls into it for real."""
     app = create_app(
         {"TESTING": True,
          "DATABASE_URL": _with_scheme(db_url, "postgresql+psycopg"),
          "PULL_STATUS_PATH": str(tmp_path / "pull_status.json")},
         pull_runner=_real_pull_runner(pull_pipeline, connect_to_test_db),
     )
-    yield app
-    models.configure(models.database_url())
+    return app

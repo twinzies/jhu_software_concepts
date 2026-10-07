@@ -1,11 +1,11 @@
 """Task 1: Flask app factory, routes, and rendering of the analysis page."""
 
+import psycopg
 import pytest
 from app import PullState, create_app, last_pull
 from conftest import FakeProcess
 from flask import Flask
 from flask.testing import FlaskClient
-from sqlalchemy.exc import SQLAlchemyError
 
 pytestmark = pytest.mark.web
 
@@ -147,8 +147,8 @@ def test_last_pull_ignores_an_unreadable_status_file(tmp_path, app):
 
 def test_page_shows_a_banner_when_the_database_fails(tmp_path):
     """A database error is reported on the page instead of raising."""
-    def broken():
-        raise SQLAlchemyError("connection refused")
+    def broken(limit):
+        raise psycopg.OperationalError("connection refused")
 
     application = create_app(
         {"TESTING": True, "PULL_STATUS_PATH": str(tmp_path / "pull_status.json")},

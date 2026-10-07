@@ -44,23 +44,23 @@ def test_update_analysis_returns_ok_when_not_busy(client):
 
 def test_update_analysis_refreshes_the_page(client, analysis_source):
     """The button re-runs the analysis."""
-    before = analysis_source.calls
+    before = len(analysis_source.limits)
     response = client.post("/update-analysis", headers=HTML, follow_redirects=True)
 
     assert response.status_code == 200
-    assert analysis_source.calls > before
+    assert len(analysis_source.limits) > before
 
 
 # --- 2c. Busy gating --- #
 
 def test_update_analysis_is_gated_when_busy(client, busy, analysis_source):
     busy()
-    before = analysis_source.calls
+    before = len(analysis_source.limits)
     response = client.post("/update-analysis")
 
     assert response.status_code == 409
     assert response.get_json() == {"busy": True}
-    assert analysis_source.calls == before
+    assert len(analysis_source.limits) == before
 
 
 def test_pull_data_is_gated_when_busy(app, client, busy):

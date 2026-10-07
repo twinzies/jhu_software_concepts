@@ -65,6 +65,11 @@ and the two should match exactly:
 diff <(python query_data.py) <(python orm_queries.py)
 ```
 
+## SQL Injection Defenses
+
+All SQL is built with psycopg's `sql.SQL` composition: table and column names are quoted with `sql.Identifier`, and every value is a bound placeholder passed separately to `cursor.execute(statement, params)`. No query is built with f-strings, `+`, or `.format()` on raw SQL text.
+Every query ends in `LIMIT %(limit)s`. `sql_safety.clamp_limit` clamps the limit to 1–100 and replaces non-numeric input such as `/analysis?limit=1;DROP TABLE applicants` with the default (`tests/test_sql_injection.py`).
+
 ## Testing
 
 Run from this folder so pytest finds `pytest.ini`. No database or network is needed.

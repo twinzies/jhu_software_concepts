@@ -2,6 +2,10 @@
 
 Built by the create_app factory so tests can construct an isolated application
 that reads fake rows and starts a fake scraper. Run from src/: flask --app app run
+
+The page accepts one user-supplied value, ?limit=N (rows per question). It is
+validated and clamped to 1..100 by sql_safety.clamp_limit, then bound as a
+query parameter; it is never placed into SQL text.
 """
 
 import json
@@ -20,12 +24,11 @@ from flask import (
     request,
     url_for,
 )
-from sqlalchemy import func, select
-from sqlalchemy.exc import SQLAlchemyError
+import psycopg
 
-import models
-from models import Applicant, Session
-from orm_queries import QUESTIONS, format_value, run_queries
+import query_data
+from query_data import QUESTIONS, format_value
+from sql_safety import DEFAULT_LIMIT, clamp_limit
 
 BASE_DIR = Path(__file__).resolve().parent
 STATUS_PATH = BASE_DIR / "pull_status.json"
@@ -80,14 +83,12 @@ def build_blocks(results):
     return blocks
 
 
-def database_analysis():
+def database_analysis(limit=DEFAULT_LIMIT):
     """Read the eleven answers and the row count from PostgreSQL as (blocks, total)."""
-    with Session() as session:
-        blocks = build_blocks(run_queries(session))
-        total = session.scalar(
-            select(func.count()).select_from(Applicant)  # pylint: disable=not-callable
-        )
-    return blocks, total
+    with query_data.connect(current_app.config["DATABASE_URL"]) as connection:
+        results = query_data.run_queries(connection, limit)
+        total = query_data.count_applicants(connection)
+    return build_blocks(results), total
 
 
 def spawn_pull():
@@ -148,9 +149,6 @@ def create_app(config=None, *, analysis_source=None, pull_runner=None):
     )
     flask_app.config.update(config or {})
 
-    if flask_app.config["DATABASE_URL"]:
-        models.configure(flask_app.config["DATABASE_URL"])
-
     flask_app.extensions["analysis_source"] = analysis_source or database_analysis
     flask_app.extensions["pull_state"] = PullState(pull_runner)
 
@@ -159,10 +157,12 @@ def create_app(config=None, *, analysis_source=None, pull_runner=None):
     def analysis():
         """Render the analysis page; both paths serve it so older links keep working."""
         state = current_app.extensions["pull_state"]
+        # Untrusted input: anything that isn't a whole number in range is replaced or clamped.
+        limit = clamp_limit(request.args.get("limit"))
         blocks, total, error = [], None, None
         try:
-            blocks, total = current_app.extensions["analysis_source"]()
-        except SQLAlchemyError as database_error:
+            blocks, total = current_app.extensions["analysis_source"](limit)
+        except psycopg.Error as database_error:
             error = (f"Could not read the database: {database_error}. "
                      "Check that PostgreSQL is running and DATABASE_URL or the "
                      "PG* variables are set.")

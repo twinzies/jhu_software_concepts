@@ -4,7 +4,7 @@ import clean
 import load_data
 import pytest
 from conftest import REQUIRED_COLUMNS
-from orm_queries import run_queries
+from query_data import run_queries
 
 pytestmark = pytest.mark.db
 
@@ -68,12 +68,12 @@ def test_load_records_skips_rows_already_in_the_table(db_connection, scraped_rec
     assert load_data.load_records(db_connection, rows) == (0, len(rows))
     assert count(db_connection) == len(rows)
 
-def test_query_function_returns_expected_keys(db_connection, db_session, scraped_records):
+def test_query_function_returns_expected_keys(db_connection, scraped_records):
     """4c: run_queries returns a dict of rows keyed by the template's column names."""
     load_data.load_records(db_connection, rows_from(scraped_records))
     db_connection.commit()
 
-    results = run_queries(db_session)
+    results = run_queries(db_connection)
 
     assert set(results) == set(EXPECTED_KEYS)
     for number, rows in results.items():
