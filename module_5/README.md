@@ -5,30 +5,38 @@ questions in both raw SQL and SQLAlchemy, and serves the results as a Flask page
 
 **Github SSH URL for this repo:** `git@github.com:twinzies/jhu_software_concepts.git`
 
-### ()
+### New - Pylint
 Pylint was run on this repository with the following command:
 
 ```bash
 pylint src
 ```
 
-## Setup
+## Fresh Install
 
-Use the same Python environment for installing and running. The local setup uses Conda base,
-`/opt/miniconda3/bin/python`, Python 3.12.
+Requires Python 3.10+, PostgreSQL, and Graphviz (for `pydeps`; on macOS: `brew install graphviz`). Run from `module_5/`.
 
-```bash
-python -m pip install -r requirements.txt
-```
-
-or alternatively, in a virtual environment: 
+**pip + venv**
 
 ```bash
 python -m venv .venv
 source .venv/bin/activate
 python -m pip install --upgrade pip
 python -m pip install -r requirements.txt
+python -m pip install -e .
 ```
+
+**uv**
+
+```bash
+uv venv
+source .venv/bin/activate
+uv pip install -r requirements.txt
+uv pip install -e .
+```
+
+`requirements.txt` holds the runtime packages plus the tooling (pytest, pylint, pydeps). `pip install -e .` installs the project itself from `setup.py` as an editable package, so `app`, `query_data`, `db` and the other modules in `src/` import the same way from any folder, in tests, and in CI.
+
 ### Database and environment variables
 
 The app reads its connection only from `DB_HOST`, `DB_PORT`, `DB_NAME`, `DB_USER` and `DB_PASSWORD` (`src/db.py`); no credentials are in the code. Copy `.env.example` to `.env` (git-ignored), set a password, and load it into your shell before running anything, so the Pull Data subprocess inherits it:
