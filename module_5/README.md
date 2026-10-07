@@ -1,7 +1,7 @@
-# Module 4
+# Module 5
 
 The project in src/ is the flask app built in module_3 which loads the cleaned Module 2 applicant data into PostgreSQL, answers the eleven analysis
-questions in both raw SQL and SQLAlchemy, and serves the results as a Flask page with Pull Data and Update Analysis buttons. This module_4 expands on that work with a test suite using pytest and documentation with sphinx.
+questions in both raw SQL and SQLAlchemy, and serves the results as a Flask page with Pull Data and Update Analysis buttons. Module 4 added tests and Sphinx docs. Module 5 adds security: safe SQL, a least-privilege database user, dependency scanning, and CI.
 
 **Github SSH URL for this repo:** `git@github.com:twinzies/jhu_software_concepts.git`
 
@@ -68,11 +68,11 @@ python src/orm_queries.py     # SQLAlchemy answers, same numbering.
 flask --app app run       # app at http://127.0.0.1:5000
 ```
 
-Run `query_data.py` and `orm_queries.py` from this folder. Both print one line per question,
+Run these from `module_5/`. `query_data.py` and `orm_queries.py` print one line per question,
 and the two should match exactly:
 
 ```bash
-diff <(python query_data.py) <(python orm_queries.py)
+diff <(python src/query_data.py) <(python src/orm_queries.py)
 ```
 
 ## SQL Injection Defenses
@@ -80,9 +80,22 @@ diff <(python query_data.py) <(python orm_queries.py)
 All SQL is built with psycopg's `sql.SQL` composition: table and column names are quoted with `sql.Identifier`, and every value is a bound placeholder passed separately to `cursor.execute(statement, params)`. No query is built with f-strings, `+`, or `.format()` on raw SQL text.
 Every query ends in `LIMIT %(limit)s`. `sql_safety.clamp_limit` clamps the limit to 1–100 and replaces non-numeric input such as `/analysis?limit=1;DROP TABLE applicants` with the default (`tests/test_sql_injection.py`).
 
+## Security Tooling
+
+Run from `module_5/`.
+
+```bash
+pylint src --fail-under=10        # lint; fails below 10/10
+snyk test                         # scan dependencies for known vulnerabilities
+snyk code test                    # scan our own code (Snyk Code)
+cd src && pydeps . --max-bacon 3 --max-module-depth 2 -x src.db src.sql_safety src.load_data src.query_data src.models src.scrape 'psycopg.*' 'flask.*' 'sqlalchemy.*' 'selenium.*' 'urllib3.*' --noshow -T svg -o ../dependency.svg
+```
+
+GitHub Actions (`.github/workflows/ci.yml`) runs Pylint, pydeps, Snyk and Pytest on every push and pull request, and fails if any of them fail.
+
 ## Testing
 
-Run from this folder so pytest finds `pytest.ini`. No database or network is needed.
+Run from this folder so pytest finds `pytest.ini`. The tests need a running local PostgreSQL; they create and use their own `module_4_test` database, never the app's data.
 
 ```bash
 python -m pytest                                                    # whole suite, with coverage
