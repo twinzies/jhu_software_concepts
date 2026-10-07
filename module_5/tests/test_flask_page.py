@@ -43,11 +43,9 @@ def test_factory_injects_the_pull_runner(app):
 
 
 def test_config_can_be_overridden_by_tests(tmp_path):
-    url = "postgresql+psycopg://localhost/module_4_test"
     status = tmp_path / "status.json"
-    app = create_app({"TESTING": True, "DATABASE_URL": url, "PULL_STATUS_PATH": str(status)})
+    app = create_app({"TESTING": True, "PULL_STATUS_PATH": str(status)})
 
-    assert app.config["DATABASE_URL"] == url
     assert app.config["PULL_STATUS_PATH"] == str(status)
 
 

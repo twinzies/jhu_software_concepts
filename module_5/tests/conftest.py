@@ -3,6 +3,7 @@
 import getpass
 import json
 import os
+from pathlib import Path
 from urllib.parse import urlsplit, urlunsplit
 import load_data
 import models
@@ -176,7 +177,7 @@ def pull_pipeline(monkeypatch, tmp_path, scraped_records):
                             scraper or (lambda pages: scraped_records))
         monkeypatch.setattr(pull_data, "STATUS_PATH", recorder.status_path)
         monkeypatch.setattr(scrape, "OUTPUT_PATH", tmp_path / "scraped_data.jsonl")
-        monkeypatch.setattr(pull_data.psycopg, "connect",
+        monkeypatch.setattr(psycopg, "connect",
                             connect or (lambda **kwargs: FakeConnection()))
         monkeypatch.setattr(load_data, "load_records", load_records)
         return recorder
@@ -186,6 +187,8 @@ def pull_pipeline(monkeypatch, tmp_path, scraped_records):
 TEST_DB_NAME = "module_4_test"
 
 # Required in the Module 3 schema: every scraped submission carries these.
+SCHEMA_SQL = Path(__file__).resolve().parents[1] / "db" / "schema.sql"
+
 REQUIRED_COLUMNS = ("program", "date_added", "url", "status", "term",
                     "us_or_international", "degree")
 
@@ -198,10 +201,6 @@ def _test_database_url():
     """A dedicated test database, derived from the environment but never the app's own."""
     if os.environ.get("TEST_DATABASE_URL"):
         return _with_scheme(os.environ["TEST_DATABASE_URL"], "postgresql")
-    configured = os.environ.get("DATABASE_URL")
-    if configured:
-        return _with_scheme(
-            urlunsplit(urlsplit(configured)._replace(path=f"/{TEST_DB_NAME}")), "postgresql")
     user = os.environ.get("PGUSER") or getpass.getuser()
     host = os.environ.get("PGHOST", "localhost")
     port = os.environ.get("PGPORT", "5432")
@@ -231,7 +230,7 @@ def db_url():
 def db_connection(db_url):
     """An empty applicants table on the test database, for one test."""
     with psycopg.connect(db_url) as connection:
-        connection.execute(load_data.CREATE_TABLE)
+        connection.execute(SCHEMA_SQL.read_text(encoding="utf-8"))
         connection.execute("TRUNCATE applicants RESTART IDENTITY")
         connection.commit()
         yield connection
@@ -243,7 +242,7 @@ def db_session(db_url):
     models.configure(_with_scheme(db_url, "postgresql+psycopg"))
     with models.Session() as session:
         yield session
-    models.configure(models.database_url())
+    models.configure()
 
 
 @pytest.fixture
@@ -274,12 +273,19 @@ def loading_app(tmp_path, analysis_source, pull_pipeline, connect_to_test_db, db
 
 
 @pytest.fixture
-def end_to_end_app(tmp_path, pull_pipeline, connect_to_test_db, db_url, db_connection):
+def end_to_end_app(tmp_path, monkeypatch, pull_pipeline, connect_to_test_db, db_url,
+                   db_connection):
     """An app that reads the test database through query_data and pulls into it for real."""
+    parts = urlsplit(db_url)
+    for name, value in {"DB_HOST": parts.hostname, "DB_PORT": parts.port,
+                        "DB_NAME": parts.path.lstrip("/"), "DB_USER": parts.username,
+                        "DB_PASSWORD": parts.password}.items():
+        if value:
+            monkeypatch.setenv(name, str(value))
+        else:
+            monkeypatch.delenv(name, raising=False)
     app = create_app(
-        {"TESTING": True,
-         "DATABASE_URL": _with_scheme(db_url, "postgresql+psycopg"),
-         "PULL_STATUS_PATH": str(tmp_path / "pull_status.json")},
+        {"TESTING": True, "PULL_STATUS_PATH": str(tmp_path / "pull_status.json")},
         pull_runner=_real_pull_runner(pull_pipeline, connect_to_test_db),
     )
     return app

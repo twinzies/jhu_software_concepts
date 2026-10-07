@@ -1,7 +1,7 @@
 """Answer the eleven analysis questions with composed psycopg SQL.
 
-Run from src/: python query_data.py. Connection settings come from DATABASE_URL
-or the PG* environment variables.
+Run from src/: python query_data.py. Connection settings come from the DB_*
+environment variables (see db.py).
 
 Every statement is built once with psycopg's ``sql`` module: the table and
 column names are quoted with ``sql.Identifier``, and every value, including
@@ -10,13 +10,13 @@ assembled from f-strings, ``+`` or ``.format()`` on raw SQL text.
 """
 
 from decimal import Decimal
-import os
 import sys
 
 import psycopg
 from psycopg import sql
 from psycopg.rows import dict_row
 
+import db
 from sql_safety import APPLICANTS, DEFAULT_LIMIT, clamp_limit
 
 # The values the questions filter on. They are bound as parameters, so they
@@ -255,13 +255,9 @@ QUESTIONS = {
 }
 
 
-def connect(url=None):
-    """Open a read-only, single-snapshot connection from DATABASE_URL or the PG* variables."""
-    if url is None:
-        url = os.environ.get("DATABASE_URL", "")
-    # SQLAlchemy-style URLs name the driver; libpq expects the plain scheme.
-    url = url.replace("postgresql+psycopg://", "postgresql://", 1)
-    connection = psycopg.connect(conninfo=url, connect_timeout=10)
+def connect():
+    """Open a read-only, single-snapshot connection."""
+    connection = db.connect()
     # Keep every answer on the same snapshot and prevent database changes.
     connection.isolation_level = psycopg.IsolationLevel.REPEATABLE_READ
     connection.read_only = True

@@ -6,10 +6,9 @@ import sys
 import time
 from pathlib import Path
 
-import psycopg
-
 # Python puts this script's folder (src/) on sys.path, so sibling modules import directly.
 import clean
+import db
 import load_data
 import scrape
 
@@ -64,7 +63,7 @@ def main():
 
         inserted = 0
         if rows:
-            with psycopg.connect(connect_timeout=10) as connection:
+            with db.connect() as connection:
                 inserted, _ = load_data.load_records(connection, rows)
 
         # Counts entries dropped as already-seen by either the scrape file or the loader.

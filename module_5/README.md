@@ -29,23 +29,22 @@ source .venv/bin/activate
 python -m pip install --upgrade pip
 python -m pip install -r requirements.txt
 ```
-Export the environment variables with the following commands:
+### Database and environment variables
+
+The app reads its connection only from `DB_HOST`, `DB_PORT`, `DB_NAME`, `DB_USER` and `DB_PASSWORD` (`src/db.py`); no credentials are in the code. Copy `.env.example` to `.env` (git-ignored), set a password, and load it into your shell before running anything, so the Pull Data subprocess inherits it:
 
 ```bash
-export PGDATABASE=module_4
-export PGUSER="$USER"
-export PGHOST=localhost
-export PGPORT=5432
+cp .env.example .env
+set -a; source .env; set +a
 ```
 
-Create the database once, if it does not already exist:
+As the database owner, create the database and table, then the app's least-privilege login, `gradcafe_app`. It is not a superuser and has only `SELECT` and `INSERT` on `applicants`: no `UPDATE`, `DELETE`, `DROP`, `ALTER` or `CREATE`.
 
 ```bash
 createdb module_4
+psql -d module_4 -f db/schema.sql
+psql -d module_4 -v app_password="$DB_PASSWORD" -f db/least_privilege.sql
 ```
-
-The login role must already exist. Connection settings come from PostgreSQL's
-`PG*` environment variables, so no credentials appear in the code and nothing prompts for a password. Export the variables before starting Flask, because the Pull Data subprocess inherits them from the server.
 
 pull_data.py needs Firefox installed. The rest of the page works without Firefox; only the Pull Data button needs it so that Selenium can bypass the Cloudflare restriction on grad cafe when scraping with scrape.py.
 

@@ -9,7 +9,6 @@ query parameter; it is never placed into SQL text.
 """
 
 import json
-import os
 import subprocess
 import sys
 from datetime import datetime
@@ -85,7 +84,7 @@ def build_blocks(results):
 
 def database_analysis(limit=DEFAULT_LIMIT):
     """Read the eleven answers and the row count from PostgreSQL as (blocks, total)."""
-    with query_data.connect(current_app.config["DATABASE_URL"]) as connection:
+    with query_data.connect() as connection:
         results = query_data.run_queries(connection, limit)
         total = query_data.count_applicants(connection)
     return build_blocks(results), total
@@ -144,7 +143,6 @@ def create_app(config=None, *, analysis_source=None, pull_runner=None):
     """Build the app, letting tests override config and inject fake data and scraper callables."""
     flask_app = Flask(__name__)
     flask_app.config.update(
-        DATABASE_URL=os.environ.get("DATABASE_URL", ""),
         PULL_STATUS_PATH=str(STATUS_PATH),
     )
     flask_app.config.update(config or {})
@@ -164,8 +162,8 @@ def create_app(config=None, *, analysis_source=None, pull_runner=None):
             blocks, total = current_app.extensions["analysis_source"](limit)
         except psycopg.Error as database_error:
             error = (f"Could not read the database: {database_error}. "
-                     "Check that PostgreSQL is running and DATABASE_URL or the "
-                     "PG* variables are set.")
+                     "Check that PostgreSQL is running and the DB_* "
+                     "variables are set.")
 
         return render_template(
             "index.html",

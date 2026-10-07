@@ -1,10 +1,11 @@
 """SQLAlchemy model and session factory for the applicants table."""
 
-import os
 from datetime import date
 
 from sqlalchemy import Date, Float, Identity, Integer, Text, create_engine
 from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column, sessionmaker
+
+import db
 
 
 # Declarative models hold columns, not methods.
@@ -36,27 +37,18 @@ class Applicant(Base):  # pylint: disable=too-few-public-methods
     llm_generated_university: Mapped[str | None] = mapped_column(Text)
 
 
-# With no DATABASE_URL the psycopg driver reads the PG* environment variables.
-DEFAULT_DATABASE_URL = "postgresql+psycopg://"
-
-
-def database_url():
-    """Return the connection URL, preferring DATABASE_URL over the PG* variables."""
-    return os.environ.get("DATABASE_URL") or DEFAULT_DATABASE_URL
-
-
 def make_engine(url=None):
-    """Build an engine for the URL, timing out only on PostgreSQL connections."""
-    url = url or database_url()
-    connect_args = {"connect_timeout": 10} if url.startswith("postgresql") else {}
-    return create_engine(url, connect_args=connect_args)
+    """Build an engine for url, or one that connects with the DB_* variables."""
+    if url:
+        return create_engine(url)
+    return create_engine("postgresql+psycopg://", creator=db.connect)
 
 
 # Session is a factory class, so it keeps SQLAlchemy's CapWords convention.
 Session = sessionmaker(bind=make_engine())  # pylint: disable=invalid-name
 
 
-def configure(url):
+def configure(url=None):
     """Point the shared Session at another database, so tests can override it."""
     engine = make_engine(url)
     Session.configure(bind=engine)
